@@ -1,0 +1,384 @@
+---
+title: Benchmark Command (b)
+description: Test system compression and decompression performance
+---
+
+The `b` (benchmark) command tests CPU performance and compression efficiency by compressing and decompressing test data.
+
+## Syntax
+
+```bash
+7z b [number_of_iterations] [<switches>...]
+```
+
+## Description
+
+The benchmark command:
+- Measures compression and decompression speed
+- Tests CPU performance under load
+- Validates multi-threading efficiency
+- Generates reproducible performance data
+- Uses synthetic test data (does not require files)
+- Reports speed in MB/s and MIPS (million instructions per second)
+
+## Common Options
+
+<ParamField path="number_of_iterations" type="number">
+  Number of benchmark passes to run. More iterations provide more accurate results.
+  
+  **Default:** Runs until Ctrl+C or sufficient data collected
+  
+  **Example:** `7z b 10` (run 10 iterations)
+</ParamField>
+
+<ParamField path="-mmt{N}" type="number">
+  Set number of CPU threads to use.
+  - `-mmt1` - Single thread
+  - `-mmt2` - Two threads
+  - `-mmt=on` - All available threads (default)
+  
+  **Example:** `-mmt=4`
+</ParamField>
+
+<ParamField path="-md{Size}" type="string">
+  Set dictionary size for testing.
+  
+  **Example:** `-md=32m` (32 MB dictionary)
+</ParamField>
+
+<ParamField path="-m{Method}" type="string">
+  Set compression method to test.
+  
+  **Example:** `-m0=LZMA2` or `-m0=PPMd`
+</ParamField>
+
+## Examples
+
+### Basic benchmark
+```bash
+7z b
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz (6C12T)
+RAM size:    16384 MB,  # CPU hardware threads:  12
+RAM usage:    3418 MB,  # Benchmark threads:     12
+
+                       Compressing  |                  Decompressing
+Dict     Speed Usage    R/U Rating  |      Speed Usage    R/U Rating
+         KB/s     %   MIPS   MIPS  |       KB/s     %   MIPS   MIPS
+
+22:      30145  1200   2445  29336  |     389234  1200   2766  33195
+23:      29234  1200   2481  29775  |     382145  1200   2751  33018
+24:      27823  1199   2498  29952  |     374234  1199   2738  32826
+25:      26234  1199   2491  29868  |     361234  1198   2712  32488
+-----------------------------------|-----------------------------------
+Avg:             1200   2479  29733  |              1199   2742  32882
+Tot:             1199   2610  31307
+```
+
+### Benchmark with specific thread count
+```bash
+7z b -mmt=4
+```
+
+### Benchmark single-threaded performance
+```bash
+7z b -mmt=1
+```
+
+### Run specific number of iterations
+```bash
+7z b 10
+```
+
+### Benchmark with custom dictionary size
+```bash
+7z b -md=64m
+```
+
+### Benchmark specific compression method
+```bash
+7z b -m0=LZMA2
+```
+
+### Benchmark PPMd method
+```bash
+7z b -m0=PPMd
+```
+
+### Quick benchmark (fewer passes)
+```bash
+7z b 3
+```
+
+## Understanding Benchmark Output
+
+### Header Information
+
+```
+Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz (6C12T)
+```
+- CPU model and specifications
+- Core count (6C) and thread count (12T)
+
+```
+RAM size:    16384 MB,  # CPU hardware threads:  12
+RAM usage:    3418 MB,  # Benchmark threads:     12
+```
+- Total system RAM
+- Available hardware threads
+- RAM used for benchmark
+- Threads used in test
+
+### Performance Metrics
+
+<ParamField path="Dict" type="number">
+  Dictionary size (2^N bytes). Larger = more memory, better compression.
+  
+  **Example:** `22` = 2^22 = 4 MB
+</ParamField>
+
+<ParamField path="Speed (KB/s)" type="number">
+  Throughput in kilobytes per second.
+</ParamField>
+
+<ParamField path="Usage (%)" type="number">
+  CPU utilization percentage. 100% per thread.
+  
+  **Example:** 1200% = 12 threads at 100%
+</ParamField>
+
+<ParamField path="R/U Rating (MIPS)" type="number">
+  Performance rating in Million Instructions Per Second:
+  - **R (Rating)** - Single-thread equivalent performance
+  - **U (Usage)** - Multi-thread total performance
+</ParamField>
+
+### Compression vs Decompression
+
+- **Compressing** - Tests encoding speed
+- **Decompressing** - Tests decoding speed
+- Decompression is typically faster than compression
+
+### Average Scores
+
+```
+Avg:             1200   2479  29733  |              1199   2742  32882
+Tot:             1199   2610  31307
+```
+
+- **Avg** - Average for compression and decompression separately
+- **Tot** - Combined total rating (overall performance)
+
+## Advanced Benchmarking
+
+### Test Multi-Threading Scaling
+```bash
+#!/bin/bash
+for threads in 1 2 4 8 12; do
+    echo "Testing with $threads threads:"
+    7z b -mmt=$threads 3 | grep "^Tot:"
+done
+```
+
+### Compare Compression Methods
+```bash
+echo "LZMA2:"
+7z b -m0=LZMA2 5 | grep "^Tot:"
+
+echo "PPMd:"
+7z b -m0=PPMd 5 | grep "^Tot:"
+
+echo "BZip2:"
+7z b -m0=BZip2 5 | grep "^Tot:"
+```
+
+### Test Different Dictionary Sizes
+```bash
+for size in 16m 32m 64m 128m; do
+    echo "Dictionary: $size"
+    7z b -md=$size 3 | grep "^Tot:"
+done
+```
+
+### Continuous Stress Test
+```bash
+# Run indefinitely until interrupted
+7z b
+```
+
+### Quick Performance Check
+```bash
+7z b 1 | tail -1
+```
+
+## Use Cases
+
+### System Performance Testing
+
+Test CPU and memory subsystem:
+```bash
+7z b -mmt=on 10
+```
+
+### Thermal Testing
+
+Run extended benchmark to test cooling:
+```bash
+# Run for extended period
+7z b 100
+```
+
+### Multi-Threading Efficiency
+
+Compare single vs multi-threaded:
+```bash
+echo "Single thread:"
+7z b -mmt=1 5 | grep "^Tot:"
+
+echo "All threads:"
+7z b -mmt=on 5 | grep "^Tot:"
+```
+
+### Memory Bandwidth Test
+
+Test with large dictionary:
+```bash
+7z b -md=256m -mmt=1
+```
+
+## Interpreting Results
+
+### Good Performance Indicators
+
+- **High CPU Usage** - Near 100% per thread (e.g., 1200% for 12 threads)
+- **Consistent Speeds** - Little variation between iterations
+- **Scaling** - Multi-thread rating ≈ single-thread × thread count
+
+### Performance Issues
+
+- **Low Usage** - CPU not fully utilized (thermal throttling, power limits)
+- **Varying Speeds** - Inconsistent results (background processes)
+- **Poor Scaling** - Multi-thread not scaling linearly (memory bandwidth limit)
+
+## Benchmark Comparison
+
+### Entry-Level CPU
+```
+Tot:              300    800   4800
+```
+- Older or low-power CPU
+- 4 threads, moderate performance
+
+### Mid-Range CPU
+```
+Tot:              800   1800  14400
+```
+- Modern mid-range processor
+- 8 threads, good performance
+
+### High-End CPU
+```
+Tot:             1600   3500  28000
+```
+- High-end desktop or workstation
+- 16+ threads, excellent performance
+
+### Server CPU
+```
+Tot:             3200   7000  56000
+```
+- Multi-socket server
+- 32+ threads, extreme performance
+
+## Scripting Examples
+
+### Save Benchmark Results
+```bash
+#!/bin/bash
+DATE=$(date +%Y%m%d-%H%M%S)
+OUTPUT="benchmark-${DATE}.txt"
+
+echo "7-Zip Benchmark - $(date)" > "$OUTPUT"
+uname -a >> "$OUTPUT"
+echo "" >> "$OUTPUT"
+7z b 10 >> "$OUTPUT" 2>&1
+echo "Results saved to $OUTPUT"
+```
+
+### Compare Before/After Performance
+```bash
+#!/bin/bash
+# Save baseline
+echo "Baseline test:"
+7z b 5 | grep "^Tot:" > baseline.txt
+
+# Make system changes here
+# ...
+
+# Test again
+echo "After changes:"
+7z b 5 | grep "^Tot:" > after.txt
+
+# Compare
+echo "Baseline:"
+cat baseline.txt
+echo "After:"
+cat after.txt
+```
+
+### Automated Performance Log
+```bash
+#!/bin/bash
+# Run weekly benchmark and log results
+
+LOGFILE="/var/log/7zip-benchmark.log"
+
+echo "=== Benchmark $(date) ===" >> "$LOGFILE"
+7z b 5 >> "$LOGFILE" 2>&1
+echo "" >> "$LOGFILE"
+```
+
+## Performance Tuning
+
+### Optimize for Speed
+```bash
+7z b -mmt=on -md=16m
+```
+Smaller dictionary = faster, less memory
+
+### Optimize for Compression
+```bash
+7z b -mmt=on -md=128m
+```
+Larger dictionary = better compression, more memory
+
+### Test Specific Scenario
+```bash
+# Simulate typical 7z compression settings
+7z b -m0=LZMA2 -md=32m -mmt=on
+```
+
+<Note>
+  Benchmark results are relative to the specific CPU and system configuration. They provide a comparison metric but don't directly predict real-world file compression times.
+</Note>
+
+<Tip>
+  For consistent results:
+  - Close other applications
+  - Disable CPU frequency scaling (set to performance mode)
+  - Run multiple iterations and average results
+  - Ensure adequate cooling
+</Tip>
+
+<Warning>
+  Extended benchmarking can generate significant heat. Ensure your system has adequate cooling before running long benchmark sessions.
+</Warning>
+
+## Related Commands
+
+- [Add Command (a)](/commands/add) - Real-world compression testing
+- [Hash Command (h)](/commands/hash) - Test hashing performance

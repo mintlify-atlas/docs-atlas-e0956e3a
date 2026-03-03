@@ -1,0 +1,204 @@
+---
+title: Contributing to 7-Zip
+description: Guidelines for contributing to the 7-Zip project
+---
+
+## Overview
+
+7-Zip is a file archiver developed and maintained by Igor Pavlov. The project is open source and distributed under the GNU LGPL license (with some exceptions for specific components).
+
+7-Zip Copyright (C) 1999-2026 Igor Pavlov.
+
+## Source Code Repository
+
+The 7-Zip source code is organized into several main directories:
+
+- **DOC** - Documentation files
+- **Asm** - Optimized assembler code for CRC, SHA, AES, and LZMA decoding
+- **C** - Source code in C
+- **CPP** - Source code in C++
+  - **Common** - Common files for C++ projects
+  - **Windows** - Windows-specific code
+  - **7zip** - Core 7-Zip modules
+
+## Compilation Instructions
+
+### Compiling on Windows
+
+To compile 7-Zip on Windows, you need Visual Studio or Windows SDK.
+
+<Accordion title="Windows Compilation Options">
+
+**Supported Platforms:**
+- x86 (Visual C++ 6.0 with Platform SDK or VS 2017/2019/2022)
+- x64 (Windows Server 2003 R2 Platform SDK or VS 2017/2019/2022)
+- arm64 (VS 2017/2019/2022)
+- arm (VS 2017/2019/2022)
+- ia64 (Windows Server 2003 R2 Platform SDK)
+
+**Required Tools:**
+- Microsoft Macro Assembler (ml.exe for x86, ml64.exe for x64)
+
+**Compile Options:**
+
+1. **Via makefile (recommended for production):**
+
+```bash
+cd SRC\CPP\7zip
+%comspec% /k "C:\Program Files\VS2022\VC\Auxiliary\Build\vcvars64.bat"
+nmake
+```
+
+2. **Via DSP file in Visual Studio (for development/debugging)**
+
+**Makefile Macros:**
+- `PLATFORM` - x64, x86, arm64, arm, ia64
+- `OLD_COMPILER` - for old VC compilers like MSVC 6.0
+- `MY_DYNAMIC_LINK` - for dynamic linking to msvcrt.dll
+
+</Accordion>
+
+### Compiling on Linux/macOS
+
+7-Zip can be compiled on Unix-like systems using GCC or Clang.
+
+<Accordion title="Linux/macOS Compilation Options">
+
+**Assembler Support:**
+
+For optimal performance, you can compile with assembler code:
+
+- **x86/x86-64**: Requires MASM syntax assembler (Asmc or UASM)
+  - Asmc: https://github.com/nidud/asmc
+  - UASM: https://github.com/Terraspace/UASM
+- **arm64**: Uses GNU assembler (supported by GCC/Clang)
+
+**Basic Compilation:**
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f makefile.gcc
+```
+
+**Optimized Compilation:**
+
+```bash
+# GCC without assembler
+make -j -f ../../cmpl_gcc.mak
+
+# Clang without assembler
+make -j -f ../../cmpl_clang.mak
+
+# GCC x86-64 with assembler
+make -j -f ../../cmpl_gcc_x64.mak
+
+# GCC arm64 with assembler
+make -j -f ../../cmpl_gcc_arm64.mak
+
+# macOS arm64
+make -j -f ../../cmpl_mac_arm64.mak
+```
+
+**Makefile Variables:**
+
+- `USE_JWASM=1` - Use JWasm instead of Asmc (note: JWasm doesn't support AES instructions)
+- `DISABLE_RAR=1` - Remove all RAR-related code
+- `DISABLE_RAR_COMPRESS=1` - Remove RAR decompression codecs (keeps archive listing/stored file extraction)
+
+**Using UASM:**
+
+```bash
+UASM="$PWD/GccUnixR/uasm"
+cd "7zip-src/CPP/7zip/Bundles/Alone2"
+make -f makefile.gcc -j IS_X64=1 USE_ASM=1 MY_ASM="$UASM"
+```
+
+</Accordion>
+
+## Build Targets
+
+The 7-Zip source can be compiled into various binaries:
+
+| Target | Description |
+|--------|-------------|
+| **7za.exe** | Standalone console version (7z/xz/cab/zip/gzip/bzip2/tar) |
+| **7zz.exe** | Standalone console version (all formats) |
+| **7zr.exe** | Standalone console version (7z only, reduced) |
+| **7z.exe** | Console version |
+| **7zFM.exe** | 7-Zip File Manager |
+| **7zG.exe** | 7-Zip GUI version |
+| **7z.dll** | DLL supporting all formats |
+| **7za.dll** | DLL for .7z support |
+| **7-zip.dll** | 7-Zip Shell extension |
+| **lzma.exe** | LZMA compression/decompression |
+
+## Development Guidelines
+
+### Code Organization
+
+7-Zip uses a modular COM-based architecture (though it doesn't use standard COM interfaces):
+
+- **7zip/Common** - Common modules
+- **7zip/Archive** - Archive format handlers
+- **7zip/Compress** - Compression/decompression algorithms
+- **7zip/Crypto** - Encryption/decryption
+- **7zip/UI** - User interface components
+- **7zip/Bundle** - Standalone module bundles
+
+### Using 7-Zip DLLs
+
+See the `7zip/UI/Client7z` folder for examples of using 7-Zip DLL files.
+
+<Note>
+Some DLL files may depend on other 7-Zip DLLs. For standalone DLLs without dependencies, use bundle versions like `7zip/Bundles/Format7z`.
+</Note>
+
+## RAR Support Compilation Options
+
+<Warning>
+RAR decompression codecs have additional license restrictions that may not be fully compatible with free-software licenses.
+</Warning>
+
+When compiling, you can control RAR support:
+
+- **Full RAR support** (default) - Includes all RAR decompression capabilities
+- **DISABLE_RAR_COMPRESS=1** - Removes "not fully free" RAR decompression codecs. 7-Zip can still:
+  - Open RAR archives
+  - List files
+  - Extract stored (uncompressed) files
+- **DISABLE_RAR=1** - Completely removes RAR support
+
+## LZMA SDK
+
+The 7-Zip source package includes files from LZMA SDK, which is written and placed in the public domain by Igor Pavlov.
+
+LZMA SDK is available separately at: http://www.7-zip.org/sdk.html
+
+## Related Projects
+
+### 7-Zip vs p7zip
+
+There are two different ports of 7-Zip for Linux/macOS:
+
+1. **p7zip** - Independent port (latest version 16.02, now outdated)
+   - http://sourceforge.net/projects/p7zip/
+
+2. **7-Zip for Linux/macOS** - Official port with all changes from latest Windows version
+   - Recommended for new projects
+
+<Note>
+These ports are not identical. Some Linux-specific features may be better implemented in p7zip.
+</Note>
+
+## Additional Resources
+
+- **7zC.txt** - 7z ANSI-C Decoder description
+- **7zFormat.txt** - 7z format specification
+- **Methods.txt** - Compression method IDs
+- **lzma.txt** - LZMA compression description
+- **src-history.txt** - Source code change history
+
+## Contact
+
+Igor Pavlov  
+http://www.7-zip.org

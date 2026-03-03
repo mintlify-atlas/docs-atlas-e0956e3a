@@ -1,0 +1,428 @@
+---
+title: BZip2 Compression
+description: BZip2 block-sorting compression method with balanced performance
+---
+
+BZip2 is a compression method based on the Burrows-Wheeler Transform (BWT) and Huffman coding. It provides a good balance between compression ratio, speed, and memory usage.
+
+## Method ID
+
+**ID:** `04 02 02` (hex)
+
+The BZip2 method is identified by the 3-byte sequence `04 02 02` in 7z archive format.
+
+<Info>
+Note: ZIP archives use a different ID (`04 01 0C`) for BZip2, but this is not used in 7z. Always use `04 02 02` for 7z archives.
+</Info>
+
+## Overview
+
+BZip2 is a widely-used compression algorithm that:
+- Uses block-sorting (Burrows-Wheeler Transform)
+- Applies Move-to-Front transform
+- Compresses with Huffman coding
+- Provides consistent, predictable compression ratios
+- Has moderate memory requirements
+
+<Accordion title="How BZip2 Works">
+  The BZip2 compression pipeline:
+  
+  1. **Block Division:** Input divided into blocks (100-900 KB)
+  2. **Burrows-Wheeler Transform:** Sorts block rotations to group similar characters
+  3. **Move-to-Front:** Converts repeated characters to small numbers
+  4. **Run-Length Encoding:** Compresses runs of zeros
+  5. **Huffman Coding:** Final entropy encoding
+  
+  This multi-stage approach provides excellent compression while maintaining reasonable speed.
+</Accordion>
+
+## Algorithm Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Burrows-Wheeler Transform" icon="arrow-right-arrow-left">
+    Reversible transformation that groups similar bytes together for better compression
+  </Card>
+  <Card title="Block-Based Processing" icon="cubes">
+    Processes data in independent blocks, enabling parallel decompression
+  </Card>
+  <Card title="Move-to-Front" icon="list">
+    Exploits locality by moving recently seen characters to front of alphabet
+  </Card>
+  <Card title="Huffman Coding" icon="binary">
+    Standard entropy coding for final compression stage
+  </Card>
+</CardGroup>
+
+## Compression Parameters
+
+<Accordion title="Block Size">
+  **Range:** 100 KB to 900 KB  
+  **Values:** 1-9 (corresponds to 100KB, 200KB, ..., 900KB)  
+  **Default:** 9 (900 KB)
+  
+  Block size determines:
+  - **Compression ratio:** Larger blocks = better compression
+  - **Memory usage:** Larger blocks = more memory
+  - **Parallelization:** Each block can be processed independently
+  
+  ```bash
+  # Compress with 900 KB blocks (default)
+  7z a -m0=BZip2 archive.7z file.txt
+  
+  # Compress with 100 KB blocks (lower memory)
+  7z a -m0=BZip2:100k archive.7z file.txt
+  
+  # Compress with 500 KB blocks
+  7z a -m0=BZip2:500k archive.7z file.txt
+  ```
+  
+  <Tip>
+  For most files, the default 900 KB block size provides the best compression. Use smaller blocks only if memory is limited.
+  </Tip>
+</Accordion>
+
+<Accordion title="Compression Level">
+  BZip2 uses block size as its primary level parameter:
+  
+  | Level | Block Size | Memory (Compress) | Memory (Decompress) |
+  |-------|------------|-------------------|---------------------|
+  | 1 | 100 KB | ~1.2 MB | ~400 KB |
+  | 2 | 200 KB | ~2.3 MB | ~800 KB |
+  | 3 | 300 KB | ~3.5 MB | ~1.2 MB |
+  | 4 | 400 KB | ~4.6 MB | ~1.6 MB |
+  | 5 | 500 KB | ~5.8 MB | ~2.0 MB |
+  | 6 | 600 KB | ~6.9 MB | ~2.4 MB |
+  | 7 | 700 KB | ~8.1 MB | ~2.8 MB |
+  | 8 | 800 KB | ~9.2 MB | ~3.2 MB |
+  | 9 | 900 KB | ~10.4 MB | ~3.6 MB |
+  
+  <Note>
+  Unlike LZMA, BZip2 compression and decompression both have modest memory requirements.
+  </Note>
+</Accordion>
+
+## Memory Requirements
+
+### Encoding
+
+```
+Memory ≈ (blockSize * 8) + 600 KB
+```
+
+For default 900 KB blocks:
+```
+Memory ≈ (900 KB * 8) + 600 KB ≈ 7.8 MB
+```
+
+<Info>
+BZip2 compression typically requires:
+- **Level 1 (100 KB):** ~1.2 MB
+- **Level 5 (500 KB):** ~5.8 MB
+- **Level 9 (900 KB):** ~10.4 MB
+
+Much less than LZMA/LZMA2 which can require hundreds of MB or even GB.
+</Info>
+
+### Decoding
+
+```
+Memory ≈ (blockSize * 4) + overhead
+```
+
+For default 900 KB blocks:
+```
+Memory ≈ (900 KB * 4) ≈ 3.6 MB
+```
+
+<Tip>
+Decompression uses about half the memory of compression, and both are significantly lower than LZMA methods.
+</Tip>
+
+## Performance Characteristics
+
+<Note>
+Typical performance on modern hardware (Intel Core i7, 3.5 GHz):
+
+**Compression:**
+- Level 1 (100 KB): ~8-10 MB/s
+- Level 5 (500 KB): ~6-8 MB/s
+- Level 9 (900 KB): ~5-7 MB/s
+
+**Decompression:**
+- All levels: ~15-25 MB/s
+
+**Compression ratio:**
+- Text files: 20-30% of original size
+- Executable files: 40-60% of original size
+- Multimedia files: 85-100% of original size (poor)
+</Note>
+
+## Compression Ratio Comparison
+
+<Accordion title="Text Files">
+  | Method | Compression Ratio | Speed (Compress) |
+  |--------|------------------|------------------|
+  | PPMd | 100% (best) | Very Slow (1-2 MB/s) |
+  | LZMA2 | 105-110% | Slow (2-3 MB/s) |
+  | BZip2 | 115-125% | Medium (5-7 MB/s) |
+  | Deflate | 140-160% | Fast (15-25 MB/s) |
+  
+  BZip2 provides a good middle ground for text compression.
+</Accordion>
+
+<Accordion title="Binary Executables">
+  | Method | Compression Ratio | Speed (Compress) |
+  |--------|------------------|------------------|
+  | LZMA2 + BCJ | 100% (best) | Slow (2-3 MB/s) |
+  | BZip2 | 120-140% | Medium (5-7 MB/s) |
+  | Deflate | 150-180% | Fast (15-25 MB/s) |
+  
+  For executables, LZMA2 with BCJ filter is superior to BZip2.
+</Accordion>
+
+<Accordion title="Already Compressed Data">
+  | Method | Result |
+  |--------|--------|
+  | All methods | No compression or expansion |
+  
+  <Warning>
+  BZip2, like all compression methods, cannot compress already-compressed data (JPEG, PNG, MP3, etc.). Use Copy method instead.
+  </Warning>
+</Accordion>
+
+## Command Line Usage
+
+```bash
+# Compress with BZip2 (default 900 KB blocks)
+7z a -m0=BZip2 archive.7z file.txt
+
+# Specify block size (100 KB)
+7z a -m0=BZip2:100k archive.7z file.txt
+
+# Specify block size (500 KB)
+7z a -m0=BZip2:500k archive.7z file.txt
+
+# Maximum compression (900 KB)
+7z a -m0=BZip2:900k archive.7z file.txt
+
+# Fast compression (100 KB, less memory)
+7z a -m0=BZip2:100k archive.7z folder/
+
+# BZip2 with multiple files
+7z a -m0=BZip2 archive.7z *.txt
+```
+
+<Info>
+BZip2 in 7z archives is single-threaded. For parallel compression, use LZMA2 with `-mmt` option.
+</Info>
+
+## BZip2 File Format
+
+Standalone .bz2 files have this structure:
+
+```
+Magic bytes: 'BZ' (0x42 0x5A)
+Version: 'h' (0x68) for BZip2
+Block size: '1'-'9' (100 KB to 900 KB)
+Compressed blocks:
+  Block header: 0x314159265359 (48 bits)
+  Block data
+  ...
+End marker: 0x177245385090 (48 bits)
+CRC-32: 4 bytes
+```
+
+<Note>
+In 7z archives, BZip2 streams are wrapped in the 7z format and don't include the standalone file headers.
+</Note>
+
+## BZip2 vs Other Methods
+
+| Feature | BZip2 | LZMA2 | Deflate | PPMd |
+|---------|-------|-------|---------|-------|
+| Method ID | 04 02 02 | 21 | 04 01 08 | 03 04 01 |
+| Compression Ratio | Good (7/10) | Excellent (9/10) | Fair (5/10) | Excellent (10/10) |
+| Compression Speed | Medium (5/10) | Slow (3/10) | Fast (7/10) | Very Slow (2/10) |
+| Decompression Speed | Medium (6/10) | Medium (6/10) | Very Fast (9/10) | Slow (4/10) |
+| Memory (Compress) | Low (~10 MB) | High (~200 MB) | Very Low (~1 MB) | High (~64 MB) |
+| Memory (Decompress) | Low (~4 MB) | Medium (~50 MB) | Very Low (~32 KB) | High (~64 MB) |
+| Multithreading | No | Yes | No | No |
+| Block-based | Yes | Yes | No | No |
+| Streaming | Yes | Yes | Yes | Yes |
+| Compatibility | Wide | 7z/XZ | Universal | Limited |
+
+## Use Cases
+
+<Accordion title="When to Use BZip2">
+  BZip2 is ideal for:
+  
+  - **Memory-constrained systems:** Uses much less RAM than LZMA
+  - **Compatibility:** Widely supported across platforms
+  - **Balanced performance:** Good ratio without excessive time
+  - **Log files:** Excellent for text-based logs
+  - **Source code archives:** Good compression with reasonable speed
+  - **Incremental backups:** Predictable compression ratios
+  
+  ```bash
+  # Compress system logs
+  7z a -m0=BZip2 logs.7z /var/log/*.log
+  
+  # Archive source code
+  7z a -m0=BZip2 source.7z project/
+  ```
+</Accordion>
+
+<Accordion title="When NOT to Use BZip2">
+  Avoid BZip2 for:
+  
+  - **Maximum compression needed:** Use LZMA2 or PPMd instead
+  - **Need for speed:** Use Deflate for faster compression/decompression
+  - **Large files with multithreading:** Use LZMA2 with `-mmt`
+  - **Already compressed data:** Will not compress further
+  - **Binary executables:** LZMA2 with BCJ filter is much better
+  
+  ```bash
+  # Wrong: BZip2 for multimedia
+  7z a -m0=BZip2 archive.7z videos/*.mp4  # No benefit
+  
+  # Right: Use Copy or LZMA2
+  7z a -m0=Copy archive.7z videos/*.mp4
+  7z a archive.7z videos/*.mp4  # Auto-detect
+  ```
+</Accordion>
+
+<Accordion title="BZip2 vs LZMA2 Decision Tree">
+  Choose BZip2 if:
+  - Memory < 50 MB available
+  - Need wide compatibility
+  - Prefer faster compression than LZMA
+  
+  Choose LZMA2 if:
+  - Memory > 100 MB available
+  - Want maximum compression
+  - Can use multithreading
+  - Primarily use 7-Zip/p7zip tools
+  
+  Choose Deflate if:
+  - Need ZIP compatibility
+  - Speed is critical
+  - Very low memory required
+  
+  Choose PPMd if:
+  - Compressing text/structured data
+  - Want absolute maximum compression
+  - Speed is not important
+</Accordion>
+
+## Interoperability
+
+<Info>
+BZip2 compressed data in 7z archives uses the standard BZip2 algorithm and is compatible with:
+
+- **Command-line tools:** bzip2, bunzip2, pbzip2
+- **Libraries:** libbz2, Apache Commons Compress
+- **Languages:** Python (bz2 module), Java, C/C++, Rust
+- **Archive formats:** 7z, tar.bz2, .bz2
+
+Data compressed with 7-Zip's BZip2 can be extracted with standard BZip2 tools and vice versa.
+</Info>
+
+## Parallel BZip2 Variants
+
+7-Zip's BZip2 implementation is single-threaded, but external tools provide parallel variants:
+
+| Tool | Threads | Speed Improvement |
+|------|---------|------------------|
+| bzip2 | 1 | Baseline |
+| pbzip2 | Multiple | 3-4x on 4 cores |
+| lbzip2 | Multiple | 3-4x on 4 cores |
+
+<Tip>
+For faster BZip2 compression outside 7-Zip, use pbzip2 or lbzip2 with tar:
+
+```bash
+# Parallel BZip2 with tar
+tar -c folder/ | pbzip2 -9 -p4 > archive.tar.bz2
+
+# Decompress in parallel
+pbzip2 -d -p4 archive.tar.bz2
+```
+</Tip>
+
+## Best Practices
+
+<Accordion title="Block Size Selection">
+  General recommendations:
+  
+  - **Small files (< 100 KB):** Use 100-300 KB blocks
+  - **Medium files (100 KB - 10 MB):** Use 500-700 KB blocks
+  - **Large files (> 10 MB):** Use 900 KB blocks (default)
+  - **Very limited memory:** Use 100-200 KB blocks
+  
+  ```bash
+  # Auto-select based on file size
+  if [ $(stat -f%z "$file") -lt 100000 ]; then
+    7z a -m0=BZip2:100k archive.7z "$file"
+  else
+    7z a -m0=BZip2 archive.7z "$file"  # Default 900k
+  fi
+  ```
+</Accordion>
+
+<Accordion title="Testing Compression Ratio">
+  Compare BZip2 with other methods:
+  
+  ```bash
+  # Test different methods
+  7z a -m0=BZip2 bzip2.7z file.txt
+  7z a -m0=LZMA2 lzma2.7z file.txt
+  7z a -m0=Deflate deflate.7z file.txt
+  
+  # Compare sizes
+  ls -lh *.7z
+  
+  # Test decompression speed
+  time 7z x bzip2.7z
+  time 7z x lzma2.7z
+  time 7z x deflate.7z
+  ```
+</Accordion>
+
+<Accordion title="Solid vs Non-Solid Archives">
+  BZip2 can be used in both solid and non-solid archives:
+  
+  ```bash
+  # Solid archive (better compression, slower random access)
+  7z a -m0=BZip2 -ms=on archive.7z folder/
+  
+  # Non-solid archive (worse compression, faster random access)
+  7z a -m0=BZip2 -ms=off archive.7z folder/
+  ```
+  
+  <Note>
+  For BZip2, the difference between solid and non-solid is less dramatic than with LZMA, since BZip2 already uses block-based compression.
+  </Note>
+</Accordion>
+
+## Error Handling
+
+BZip2 is robust and provides good error detection:
+
+- **CRC-32 checksums:** Each block has a CRC for integrity
+- **Magic numbers:** Easy detection of format errors
+- **Independent blocks:** Corruption limited to single block
+
+<Warning>
+If a BZip2 compressed file is corrupted:
+- Only the corrupted block(s) will be affected
+- Other blocks may still be recoverable
+- Use `bzip2recover` tool to attempt recovery of .bz2 files
+</Warning>
+
+## See Also
+
+- [LZMA2 Compression](/compression/lzma2) - Better compression ratio
+- [Deflate Compression](/compression/deflate) - Faster compression
+- [Compression Methods Overview](/compression/overview) - Compare all methods
+- External: BZip2 homepage, libbz2 documentation
+- Tools: bzip2, pbzip2, lbzip2

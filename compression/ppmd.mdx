@@ -1,0 +1,452 @@
+---
+title: PPMd Compression
+description: PPMd (Prediction by Partial Matching) compression for text and highly compressible data
+---
+
+PPMd (Prediction by Partial Matching, variant D) is a compression method based on context modeling and statistical prediction. It provides excellent compression ratios for text and other highly structured data.
+
+## Method ID
+
+**ID:** `03 04 01` (hex)
+
+The PPMd method is identified by the 3-byte sequence `03 04 01` in 7z archive format.
+
+## Overview
+
+7-Zip includes two PPMd implementations:
+
+<CardGroup cols={2}>
+  <Card title="PPMd Variant H (PPMd7)" icon="h">
+    Original PPMd algorithm from 2001
+    - Based on Dmitry Shkarin's PPMd var.H
+    - Used in 7z archives
+    - Order: 2-64
+  </Card>
+  <Card title="PPMd Variant I (PPMd8)" icon="i">
+    Improved PPMd algorithm from 2002
+    - Based on Dmitry Shkarin's PPMd var.I
+    - Better compression ratio
+    - Order: 2-16
+  </Card>
+</CardGroup>
+
+<Info>
+PPMd is particularly effective for:
+- Text files (source code, logs, documents)
+- Structured data (CSV, JSON, XML)
+- Database dumps
+- Configuration files
+
+For these file types, PPMd often achieves 5-20% better compression than LZMA.
+</Info>
+
+## How PPMd Works
+
+PPMd uses Prediction by Partial Matching:
+
+1. **Context Modeling:** Analyzes previous bytes to build statistical models
+2. **Probability Prediction:** Predicts the probability of each possible next byte
+3. **Arithmetic Coding:** Encodes bytes using their predicted probabilities
+4. **Adaptive Learning:** Updates models as more data is processed
+
+<Accordion title="Context Orders">
+  PPMd maintains multiple context models of different lengths (orders):
+  
+  ```
+  Order 0: Current byte independent of previous bytes
+  Order 1: Based on 1 previous byte
+  Order 2: Based on 2 previous bytes
+  ...
+  Order N: Based on N previous bytes (max order)
+  ```
+  
+  Higher orders provide better compression for structured data but require more memory.
+</Accordion>
+
+<Accordion title="Escape Mechanism">
+  When a byte is not found in the current context, PPMd uses an "escape" mechanism:
+  
+  ```c
+  // From Ppmd7.c:15
+  static const Byte PPMD7_kExpEscape[16] = 
+    { 25, 14, 9, 7, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2 };
+  ```
+  
+  This allows the algorithm to fall back to lower-order contexts when needed.
+</Accordion>
+
+## PPMd7 (Variant H)
+
+PPMd var.H is the original PPMd implementation used in 7z archives.
+
+### Parameters
+
+<Accordion title="Order (maxOrder)">
+  **Type:** `unsigned`  
+  **Range:** `PPMD7_MIN_ORDER` (2) to `PPMD7_MAX_ORDER` (64)  
+  **Default:** 6
+  
+  ```c
+  // From Ppmd7.h:14-15
+  #define PPMD7_MIN_ORDER 2
+  #define PPMD7_MAX_ORDER 64
+  ```
+  
+  Maximum context length for prediction.
+  
+  - **Low order (2-4):** Faster, less memory, lower compression
+  - **Medium order (6-8):** Balanced (recommended)
+  - **High order (16-64):** Best compression for structured text
+  
+  <Tip>
+  For most text files, order 6-8 provides the best balance. For highly structured data like source code, try order 10-16.
+  </Tip>
+</Accordion>
+
+<Accordion title="Memory Size (mem)">
+  **Type:** `UInt32`  
+  **Range:** `PPMD7_MIN_MEM_SIZE` (2 KB) to `PPMD7_MAX_MEM_SIZE` (~4 GB)  
+  **Default:** 16 MB
+  
+  ```c
+  // From Ppmd7.h:17-18
+  #define PPMD7_MIN_MEM_SIZE (1 << 11)
+  #define PPMD7_MAX_MEM_SIZE (0xFFFFFFFF - 12 * 3)
+  ```
+  
+  Amount of memory allocated for context models.
+  
+  Typical settings:
+  - 1-4 MB: Fast, lower compression
+  - 16-64 MB: Good balance (recommended)
+  - 128-256 MB: Maximum compression for large text files
+  
+  <Warning>
+  Both encoder and decoder require the same amount of memory. Large memory settings may cause issues on memory-constrained systems.
+  </Warning>
+</Accordion>
+
+### Memory Requirements
+
+PPMd7 memory usage:
+
+```
+Memory = mem_size + alignment + state_structures
+       ≈ mem_size + 4 KB
+```
+
+- **Encoding:** Same as memory size parameter
+- **Decoding:** Same as memory size parameter
+- **Stack:** Minimal (< 1 KB)
+
+<Info>
+**Example configurations:**
+- Order 6, 16 MB: ~16 MB RAM (both compress/decompress)
+- Order 8, 64 MB: ~64 MB RAM (both compress/decompress)
+- Order 16, 256 MB: ~256 MB RAM (both compress/decompress)
+</Info>
+
+### API Usage
+
+```c
+#include "Ppmd7.h"
+#include "Ppmd7Enc.h"
+
+// Allocate PPMd7
+CPpmd7 ppmd;
+Ppmd7_Construct(&ppmd);
+
+UInt32 memSize = 16 << 20;  // 16 MB
+unsigned maxOrder = 6;
+
+if (!Ppmd7_Alloc(&ppmd, memSize, &g_Alloc))
+  return SZ_ERROR_MEM;
+
+// Initialize for encoding
+Ppmd7_Init(&ppmd, maxOrder);
+Ppmd7z_Init_RangeEnc(&ppmd);
+
+// Encode data
+Ppmd7z_EncodeSymbols(&ppmd, buf, buf + size);
+
+// Flush encoder
+Ppmd7z_Flush_RangeEnc(&ppmd);
+
+// Free memory
+Ppmd7_Free(&ppmd, &g_Alloc);
+```
+
+### Decoding
+
+```c
+#include "Ppmd7.h"
+#include "Ppmd7Dec.h"
+
+// Allocate and initialize decoder
+CPpmd7 ppmd;
+Ppmd7_Construct(&ppmd);
+Ppmd7_Alloc(&ppmd, memSize, &g_Alloc);
+Ppmd7_Init(&ppmd, maxOrder);
+Ppmd7z_RangeDec_Init(&ppmd.rc.dec);
+
+// Decode symbols
+for (;;) {
+  int sym = Ppmd7z_DecodeSymbol(&ppmd);
+  if (sym < 0)
+    break;  // PPMD7_SYM_END or PPMD7_SYM_ERROR
+  *dest++ = (Byte)sym;
+}
+
+Ppmd7_Free(&ppmd, &g_Alloc);
+```
+
+## PPMd8 (Variant I)
+
+PPMd var.I is an improved version with better compression ratio.
+
+### Key Differences from PPMd7
+
+<Accordion title="Maximum Order Limit">
+  PPMd8 has a lower maximum order:
+  
+  ```c
+  // From Ppmd8.h:14-15
+  #define PPMD8_MIN_ORDER 2
+  #define PPMD8_MAX_ORDER 16
+  ```
+  
+  This is due to improved context modeling that provides better compression with lower orders.
+</Accordion>
+
+<Accordion title="Restore Method">
+  PPMd8 supports different memory restoration methods:
+  
+  ```c
+  // From Ppmd8.h:56-64
+  enum {
+    PPMD8_RESTORE_METHOD_RESTART,      // Default
+    PPMD8_RESTORE_METHOD_CUT_OFF       // Alternative
+    // PPMD8_RESTORE_METHOD_FREEZE     // Disabled (compatibility)
+  };
+  ```
+  
+  - **RESTART:** More aggressive memory recycling
+  - **CUT_OFF:** Conservative memory management
+  
+  <Note>
+  FREEZE mode is disabled due to compatibility issues between PPMdI rev.1 and rev.2.
+  </Note>
+</Accordion>
+
+<Accordion title="Improved Context Statistics">
+  PPMd8 uses different statistical models:
+  
+  ```c
+  // From Ppmd8.c:15-17
+  static const Byte PPMD8_kExpEscape[16] = 
+    { 25, 14, 9, 7, 5, 5, 4, 4, 4, 3, 3, 3, 2, 2, 2, 2 };
+  static const UInt16 PPMD8_kInitBinEsc[] = 
+    { 0x3CDD, 0x1F3F, 0x59BF, 0x48F3, 0x64A1, 0x5ABC, 0x6632, 0x6051 };
+  ```
+  
+  These provide better probability estimation for certain data patterns.
+</Accordion>
+
+### API Usage
+
+```c
+#include "Ppmd8.h"
+#include "Ppmd8Enc.h"
+
+// Allocate PPMd8
+CPpmd8 ppmd;
+Ppmd8_Construct(&ppmd);
+
+UInt32 memSize = 16 << 20;  // 16 MB
+unsigned maxOrder = 6;
+unsigned restoreMethod = PPMD8_RESTORE_METHOD_RESTART;
+
+Ppmd8_Alloc(&ppmd, memSize, &g_Alloc);
+
+// Initialize
+Ppmd8_Init(&ppmd, maxOrder, restoreMethod);
+Ppmd8_Init_RangeEnc(&ppmd);
+
+// Encode
+for (size_t i = 0; i < size; i++)
+  Ppmd8_EncodeSymbol(&ppmd, buf[i]);
+
+Ppmd8_Flush_RangeEnc(&ppmd);
+Ppmd8_Free(&ppmd, &g_Alloc);
+```
+
+## Performance Characteristics
+
+<Note>
+Typical performance on modern hardware (Intel Core i7, 3.5 GHz):
+
+**Compression:**
+- Order 6, 16 MB: ~1-2 MB/s
+- Order 8, 64 MB: ~0.5-1 MB/s
+- Order 16, 256 MB: ~0.3-0.5 MB/s
+
+**Decompression:**
+- Order 6: ~5-10 MB/s
+- Order 8: ~3-7 MB/s
+- Order 16: ~2-5 MB/s
+
+**Compression ratio (vs LZMA):**
+- Text files: 5-20% better
+- Source code: 10-25% better
+- Binary executables: Similar or worse
+- Multimedia: Much worse (use LZMA)
+</Note>
+
+## Compression Ratio Comparison
+
+<Accordion title="Text Files (Source Code, Logs)">
+  | Method | Compression Ratio | Speed |
+  |--------|------------------|-------|
+  | PPMd (order 8) | 100% (best) | Slow |
+  | PPMd (order 6) | 102-105% | Medium |
+  | LZMA2 | 110-120% | Medium |
+  | BZip2 | 115-125% | Fast |
+  | Deflate | 130-150% | Very Fast |
+  
+  <Tip>
+  For large text archives, PPMd can save 10-20% space compared to LZMA.
+  </Tip>
+</Accordion>
+
+<Accordion title="Structured Data (XML, JSON, CSV)">
+  | Method | Compression Ratio | Speed |
+  |--------|------------------|-------|
+  | PPMd (order 10) | 100% (best) | Very Slow |
+  | PPMd (order 6) | 103-107% | Slow |
+  | LZMA2 | 115-130% | Medium |
+  | BZip2 | 120-135% | Fast |
+  | Deflate | 140-160% | Very Fast |
+</Accordion>
+
+<Accordion title="Binary Executables">
+  | Method | Compression Ratio | Speed |
+  |--------|------------------|-------|
+  | LZMA2 | 100% (best) | Medium |
+  | PPMd | 105-115% | Slow |
+  | BZip2 | 110-120% | Fast |
+  | Deflate | 120-140% | Very Fast |
+  
+  <Warning>
+  PPMd is not recommended for binary executables. Use LZMA2 with BCJ filter instead.
+  </Warning>
+</Accordion>
+
+## Command Line Usage
+
+```bash
+# Compress with PPMd (default: order 6, 16 MB)
+7z a -m0=PPMd archive.7z file.txt
+
+# Set order and memory size
+7z a -m0=PPMd -mo=8 -mmem=64m archive.7z file.txt
+
+# Maximum compression for text
+7z a -m0=PPMd -mo=16 -mmem=256m archive.7z documents/
+
+# Fast PPMd compression
+7z a -m0=PPMd -mo=4 -mmem=8m archive.7z file.txt
+
+# Compare with LZMA
+7z a -m0=LZMA2 lzma.7z file.txt
+7z a -m0=PPMd -mo=8 -mmem=64m ppmd.7z file.txt
+```
+
+<Tip>
+**Recommended settings by file size:**
+- Small files (< 1 MB): `-mo=4 -mmem=4m`
+- Medium files (1-10 MB): `-mo=6 -mmem=16m`
+- Large files (10-100 MB): `-mo=8 -mmem=64m`
+- Huge files (> 100 MB): `-mo=10 -mmem=128m`
+</Tip>
+
+## Best Practices
+
+<Accordion title="Choosing Order">
+  Higher order = better compression but slower and more memory:
+  
+  1. Start with order 6 (default)
+  2. For highly structured data, try order 8-10
+  3. For maximum compression, test up to order 16
+  4. Monitor compression time and memory usage
+  
+  ```bash
+  # Test different orders
+  for order in 4 6 8 10 12; do
+    7z a -m0=PPMd -mo=$order -mmem=64m test-$order.7z file.txt
+  done
+  ```
+</Accordion>
+
+<Accordion title="Memory Size Selection">
+  Memory should be:
+  - At least 1-2x the file size for small files
+  - 10-20% of file size for large files
+  - Minimum 4 MB for order 6+
+  - Maximum what both encoder and decoder can allocate
+  
+  <Warning>
+  Decoder needs the same memory as encoder. Don't use 256 MB if decoder only has 64 MB available.
+  </Warning>
+</Accordion>
+
+<Accordion title="When NOT to Use PPMd">
+  Avoid PPMd for:
+  
+  - **Already compressed data:** JPEG, PNG, MP3, video files
+  - **Binary executables:** Use LZMA2 with BCJ filter
+  - **Random data:** Any method will fail
+  - **Memory-constrained systems:** Use LZMA2 or Deflate
+  - **Need for speed:** Use LZMA2 with multithreading
+  
+  ```bash
+  # Wrong: PPMd for multimedia
+  7z a -m0=PPMd archive.7z photos/*.jpg  # Will be larger!
+  
+  # Right: Store only or use LZMA2
+  7z a -m0=Copy archive.7z photos/*.jpg
+  7z a archive.7z photos/*.jpg  # Auto-detects, uses LZMA2
+  ```
+</Accordion>
+
+## Error Codes
+
+| Symbol | Value | Description |
+|--------|-------|-------------|
+| `PPMD7_SYM_END` | -1 | End of payload marker |
+| `PPMD7_SYM_ERROR` | -2 | Data corruption error |
+| `PPMD8_SYM_END` | -1 | End of payload marker |
+| `PPMD8_SYM_ERROR` | -2 | Data corruption error |
+
+## PPMd7 vs PPMd8
+
+| Feature | PPMd7 (var.H) | PPMd8 (var.I) |
+|---------|---------------|---------------|
+| Year | 2001 | 2002 |
+| Max Order | 64 | 16 |
+| Compression | Excellent | Slightly better |
+| Speed | Medium | Slightly slower |
+| Memory | Same as setting | Same as setting |
+| Restore method | Simple | Multiple options |
+| 7z default | Yes | No |
+| Compatibility | Wider | Limited |
+
+<Info>
+For most use cases, PPMd7 (var.H) is recommended as it's the standard PPMd implementation in 7z archives.
+</Info>
+
+## See Also
+
+- [LZMA2 Compression](/compression/lzma2) - Better for general-purpose compression
+- [LZMA Compression](/compression/lzma) - Original LZMA algorithm
+- [Compression Methods Overview](/compression/overview) - Compare all methods
+- Source files: `C/Ppmd7.c`, `C/Ppmd7.h`, `C/Ppmd8.c`, `C/Ppmd8.h`

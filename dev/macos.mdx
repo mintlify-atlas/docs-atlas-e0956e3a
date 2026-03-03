@@ -1,0 +1,369 @@
+---
+title: Building on macOS
+description: Build 7-Zip from source on macOS for Intel and Apple Silicon
+---
+
+7-Zip can be compiled on macOS for both Intel (x64) and Apple Silicon (arm64) platforms using Clang.
+
+## Requirements
+
+### Xcode Command Line Tools
+
+Install the Xcode Command Line Tools to get the Clang compiler and build tools:
+
+```bash
+xcode-select --install
+```
+
+Verify installation:
+
+```bash
+clang --version
+make --version
+```
+
+<Note>
+You don't need the full Xcode IDE - just the Command Line Tools are sufficient.
+</Note>
+
+## Quick Start
+
+<Steps>
+  <Step title="Navigate to Source Directory">
+    ```bash
+    cd CPP/7zip/Bundles/Alone2
+    ```
+  </Step>
+  
+  <Step title="Build for Your Architecture">
+    <Tabs>
+      <Tab title="Apple Silicon (M1/M2/M3)">
+        ```bash
+        make -j -f ../../cmpl_mac_arm64.mak
+        ```
+      </Tab>
+      
+      <Tab title="Intel Mac">
+        ```bash
+        make -j -f ../../cmpl_mac_x64.mak
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  
+  <Step title="Run the Binary">
+    <Tabs>
+      <Tab title="Apple Silicon">
+        ```bash
+        ./b/m_arm64/7zz
+        ```
+      </Tab>
+      
+      <Tab title="Intel">
+        ```bash
+        ./b/m_x64/7zz
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## Build Configurations
+
+### Apple Silicon (ARM64)
+
+The ARM64 build includes assembler optimizations:
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_mac_arm64.mak
+```
+
+**Configuration** (from `var_mac_arm64.mak`):
+```makefile
+PLATFORM=arm64
+IS_ARM64=1
+USE_ASM=1
+CC=clang
+CXX=clang++
+MY_ARCH=-arch arm64
+```
+
+Output: `b/m_arm64/7zz`
+
+### Intel x64
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_mac_x64.mak
+```
+
+**Configuration** (from `var_mac_x64.mak`):
+```makefile
+PLATFORM=x64
+IS_X64=1
+CC=clang
+CXX=clang++
+MY_ARCH=-arch x86_64
+```
+
+Output: `b/m_x64/7zz`
+
+## Architecture-Specific Details
+
+### Apple Silicon Optimizations
+
+Apple Silicon builds use ARM64 assembler for performance:
+
+<Info>
+**Assembler Features:**
+- Uses GNU assembler syntax with preprocessor
+- Supported natively by Clang for ARM64
+- Includes optimizations for LZMA decoding
+- Hardware-accelerated cryptography where available
+</Info>
+
+The assembler code is located in:
+```
+Asm/arm64/LzmaDecOpt.S
+Asm/arm64/7zAsm.S
+```
+
+### Architecture Variants
+
+You can customize the ARM64 architecture flags in `var_mac_arm64.mak`:
+
+```makefile
+# Basic ARM64 support
+MY_ARCH=-arch arm64
+
+# With specific features
+MY_ARCH=-arch arm64 -march=armv8-a
+```
+
+<Note>
+The default configuration uses `-arch arm64` which is compatible with all Apple Silicon processors.
+</Note>
+
+## Build All Targets
+
+Navigate to the main makefile directory and build everything:
+
+```bash
+cd CPP/7zip
+make -j -f ../../cmpl_mac_arm64.mak  # For Apple Silicon
+```
+
+This builds all UI and Bundle targets.
+
+## Specific Build Targets
+
+### 7zz (All Formats)
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_mac_arm64.mak
+```
+
+### 7za (Limited Formats)
+
+```bash
+cd CPP/7zip/Bundles/Alone
+make -j -f ../../cmpl_mac_arm64.mak
+```
+
+### 7zr (7z Format Only)
+
+```bash
+cd CPP/7zip/Bundles/Alone7z
+make -j -f ../../cmpl_mac_arm64.mak
+```
+
+### Shared Library
+
+```bash
+cd CPP/7zip/Bundles/Format7zF
+make -j -f ../../cmpl_mac_arm64.mak
+```
+
+Output: `7z.dylib`
+
+## Using makefile.gcc
+
+You can also use the generic `makefile.gcc` for macOS:
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f makefile.gcc
+```
+
+This auto-detects the platform but may not use optimal flags.
+
+## Compiler Flags
+
+macOS builds use Clang-specific warning flags (from `warn_clang_mac.mak`):
+
+```makefile
+CFLAGS_WARN = \
+  -Werror -Wall -Wextra \
+  -Wconversion \
+  -Wimplicit-fallthrough
+```
+
+Optimization level: `-O2`
+
+## Universal Binaries
+
+To create a universal binary (both Intel and ARM64):
+
+<Steps>
+  <Step title="Build for ARM64">
+    ```bash
+    make -j -f ../../cmpl_mac_arm64.mak
+    cp b/m_arm64/7zz 7zz_arm64
+    ```
+  </Step>
+  
+  <Step title="Build for x64">
+    ```bash
+    make -j -f ../../cmpl_mac_x64.mak
+    cp b/m_x64/7zz 7zz_x64
+    ```
+  </Step>
+  
+  <Step title="Combine with lipo">
+    ```bash
+    lipo -create 7zz_arm64 7zz_x64 -output 7zz_universal
+    ```
+  </Step>
+  
+  <Step title="Verify">
+    ```bash
+    file 7zz_universal
+    lipo -info 7zz_universal
+    ```
+  </Step>
+</Steps>
+
+## RAR Support Options
+
+Control RAR support at build time:
+
+### Disable All RAR Support
+
+```bash
+make -j -f ../../cmpl_mac_arm64.mak DISABLE_RAR=1
+```
+
+### Disable RAR Decompression Only
+
+```bash
+make -j -f ../../cmpl_mac_arm64.mak DISABLE_RAR_COMPRESS=1
+```
+
+<Warning>
+RAR decompression codecs have license restrictions. Use `DISABLE_RAR_COMPRESS=1` to build a version that can list RAR archives but not decompress them.
+</Warning>
+
+## Output Directories
+
+macOS builds output to platform-specific directories:
+
+- `b/m_arm64/` - Apple Silicon builds
+- `b/m_x64/` - Intel builds
+- `_o/` - Default `makefile.gcc` builds
+
+## Installation
+
+Install the built binary system-wide:
+
+```bash
+sudo cp b/m_arm64/7zz /usr/local/bin/
+sudo chmod 755 /usr/local/bin/7zz
+```
+
+Verify:
+
+```bash
+7zz --version
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="xcrun: error: invalid active developer path">
+    You need to install Xcode Command Line Tools:
+    
+    ```bash
+    xcode-select --install
+    ```
+  </Accordion>
+  
+  <Accordion title="ld: library not found for -lpthread">
+    On macOS, pthread is part of the system libraries. Ensure you're using the macOS-specific makefiles:
+    
+    ```bash
+    make -j -f ../../cmpl_mac_arm64.mak
+    ```
+  </Accordion>
+  
+  <Accordion title="Architecture mismatch error">
+    Make sure you're using the correct makefile for your Mac:
+    
+    - Apple Silicon: `cmpl_mac_arm64.mak`
+    - Intel: `cmpl_mac_x64.mak`
+    
+    Check your architecture:
+    ```bash
+    uname -m
+    # arm64 = Apple Silicon
+    # x86_64 = Intel
+    ```
+  </Accordion>
+  
+  <Accordion title="dyld: Library not loaded error">
+    If building shared libraries, ensure they're in a location where dyld can find them:
+    
+    ```bash
+    export DYLD_LIBRARY_PATH=$PWD/b/m_arm64:$DYLD_LIBRARY_PATH
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Testing
+
+Benchmark your build:
+
+```bash
+./b/m_arm64/7zz b
+```
+
+This runs the built-in benchmark to test compression/decompression performance.
+
+## Differences from p7zip
+
+7-Zip for macOS is the official port from Igor Pavlov, distinct from the older p7zip project:
+
+<Info>
+**7-Zip for macOS** (this build):
+- Current version (26.00 in this source)
+- Up-to-date with Windows version
+- Official support from 7-Zip developer
+
+**p7zip** (legacy):
+- Last version: 16.02 (outdated)
+- Independent community port
+- No longer actively maintained
+</Info>
+
+## Next Steps
+
+- Test archive operations: `./b/m_arm64/7zz --help`
+- Create archives: `./b/m_arm64/7zz a archive.7z files/`
+- Extract archives: `./b/m_arm64/7zz x archive.7z`
+
+## See Also
+
+- [Building Overview](/dev/building) - General build information
+- [Building on Windows](/dev/windows) - MSVC builds
+- [Building on Linux](/dev/linux) - Linux builds with GCC

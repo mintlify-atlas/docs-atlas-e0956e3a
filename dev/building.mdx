@@ -1,0 +1,142 @@
+---
+title: Building 7-Zip from Source
+description: Overview of building 7-Zip binaries for different platforms
+---
+
+7-Zip can be compiled from source for Windows, Linux, and macOS platforms. The build process varies depending on your target platform and compiler.
+
+## Source Structure
+
+The 7-Zip source package is organized as follows:
+
+- **DOC/** - Documentation files including readme.txt, license information
+- **Asm/** - Assembler source code for optimized CRC, SHA, AES, and LZMA decoding
+- **C/** - C source code
+- **CPP/** - C++ source code
+  - **Common/** - Common modules
+  - **Windows/** - Windows-specific code
+  - **7zip/** - Core 7-Zip modules
+    - **Archive/** - Archive format handlers
+    - **Bundles/** - Standalone binaries (Alone, Alone2, Format7z, etc.)
+    - **Compress/** - Compression/decompression codecs
+    - **Crypto/** - Encryption/decryption modules
+    - **UI/** - User interfaces (Console, GUI, FileManager)
+
+## Build Targets
+
+The main build targets available in the Bundles directory:
+
+| Target | Output | Description |
+|--------|--------|-------------|
+| **Alone** | 7za.exe / 7za | Standalone console version (7z/xz/cab/zip/gzip/bzip2/tar only) |
+| **Alone2** | 7zz.exe / 7zz | Standalone console version (all formats) |
+| **Alone7z** | 7zr.exe / 7zr | Standalone console version (7z only, reduced) |
+| **Format7zF** | 7z.dll / 7z.so | All formats as shared library |
+| **Console** | 7z.exe | Console version (requires DLLs) |
+| **FileManager** | 7zFM.exe | File Manager GUI (Windows) |
+
+## Platform-Specific Guides
+
+Select your platform to view detailed build instructions:
+
+<CardGroup cols={3}>
+  <Card title="Windows" icon="windows" href="/dev/windows">
+    Build with Visual Studio or MSVC compiler
+  </Card>
+  
+  <Card title="Linux" icon="linux" href="/dev/linux">
+    Build with GCC or Clang compiler
+  </Card>
+  
+  <Card title="macOS" icon="apple" href="/dev/macos">
+    Build for Apple Silicon and Intel Macs
+  </Card>
+</CardGroup>
+
+## License Considerations
+
+7-Zip is distributed under the **GNU LGPL** license, with the following exceptions:
+
+- **unRAR code** - Has additional license restrictions (see below)
+- **Some code** - Licensed under BSD 3-clause License
+
+### RAR Support Options
+
+When building, you can control RAR support:
+
+<Info>
+**DISABLE_RAR=1** - Removes all RAR-related code from compilation
+
+**DISABLE_RAR_COMPRESS=1** - Removes RAR decompression codecs while keeping the ability to list RAR archives and extract stored (uncompressed) files
+</Info>
+
+<Warning>
+RAR decompression codecs have license restrictions that may not be fully compatible with free-software licenses. The unRAR license allows:
+- Compiling and using under GNU LGPL rules
+- Fixing bugs in source code
+- **Prohibits** using sources to re-create the RAR compression algorithm
+</Warning>
+
+## Build Methods
+
+There are two primary approaches to building 7-Zip:
+
+### 1. Makefile Compilation (Recommended)
+
+Makefile builds provide the best optimization options and are used for all official releases.
+
+- **Windows**: Use `nmake` with Visual Studio compiler
+- **Linux/macOS**: Use `make` with GCC or Clang
+
+### 2. IDE/Project Files (Development)
+
+Project files (`.dsp` for Visual Studio) are available for development and debugging purposes.
+
+<Note>
+All final 7-Zip binaries are compiled via makefiles to ensure optimal performance.
+</Note>
+
+## Assembler Support
+
+7-Zip contains optimized assembler code for better performance:
+
+### x86/x64 Platforms
+
+**Windows**: Requires Microsoft Macro Assembler (ml.exe for x86, ml64.exe for x64)
+
+**Linux**: Requires one of:
+- **Asmc Macro Assembler** (recommended) - https://github.com/nidud/asmc
+- **UASM** - https://github.com/Terraspace/UASM
+- ~~JWasm~~ - No longer recommended (doesn't support AES instructions)
+
+### ARM64 Platform
+
+Uses **GNU assembler** syntax with preprocessor, supported by both GCC and Clang.
+
+<Warning>
+JWasm doesn't support some CPU instructions used in 7-Zip. Use Asmc or UASM for x86/x64 builds on Linux.
+</Warning>
+
+## Compiler Requirements
+
+### Windows
+- Visual Studio 2017/2019/2022 (for x86, x64, arm64, arm)
+- Visual C++ 6.0 with Platform SDK (for legacy x86)
+- Windows SDK for macro assembler (ml.exe, ml64.exe)
+
+### Linux/Unix
+- GCC 4.8+ (GCC 9+ recommended for all warning flags)
+- Clang (modern version)
+- Optional: Asmc or UASM for assembler optimizations
+
+### macOS
+- Clang (from Xcode Command Line Tools)
+- Support for both Intel (x64) and Apple Silicon (arm64)
+
+## Next Steps
+
+Choose your platform to continue:
+
+- [Building on Windows](/dev/windows) - MSVC and nmake instructions
+- [Building on Linux](/dev/linux) - GCC/Clang with make
+- [Building on macOS](/dev/macos) - macOS-specific build process

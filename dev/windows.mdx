@@ -1,0 +1,241 @@
+---
+title: Building on Windows
+description: Build 7-Zip from source on Windows using Visual Studio and nmake
+---
+
+7-Zip can be built on Windows using Microsoft Visual Studio compiler (MSVC) and the nmake build tool.
+
+## Requirements
+
+### Compiler Options
+
+<Info>
+**Recommended**: Visual Studio 2017, 2019, or 2022
+
+Supports building for: x86, x64, arm64, and arm platforms
+</Info>
+
+Legacy compiler options:
+- **Visual C++ 6.0** with Platform SDK (for x86)
+- **Windows Server 2003 R2 Platform SDK** (for x64 and ia64)
+- **Standard SDK for Windows CE 5.0** (for arm/Windows CE)
+
+### Microsoft Macro Assembler
+
+Required for optimized builds:
+- **ml.exe** - for x86 builds
+- **ml64.exe** - for x64 builds
+
+Available in Windows SDK for Windows Vista or later versions.
+
+<Note>
+If using MSVC 6.0, you must configure Platform SDK directories at the top of the directories list in:
+
+**Tools → Options → Directories**
+- Include files
+- Library files
+</Note>
+
+## Build Configuration
+
+### Makefile Variables
+
+The following variables can be defined when compiling:
+
+<ResponseField name="PLATFORM" type="string">
+  Target platform: `x64`, `x86`, `arm64`, `arm`, or `ia64`
+</ResponseField>
+
+<ResponseField name="OLD_COMPILER" type="boolean">
+  Set for old compilers like MSVC 6.0
+</ResponseField>
+
+<ResponseField name="MY_DYNAMIC_LINK" type="boolean">
+  Enable dynamic linking to msvcrt.dll (default is static linking)
+</ResponseField>
+
+## Building All Binaries
+
+<Steps>
+  <Step title="Open Visual Studio Command Prompt">
+    Navigate to the source directory and initialize the Visual Studio environment:
+    
+    ```bash
+    cd CPP\7zip
+    ```
+    
+    For **x64** builds with Visual Studio 2022:
+    ```cmd
+    %comspec% /k "C:\Program Files\VS2022\VC\Auxiliary\Build\vcvars64.bat"
+    ```
+  </Step>
+  
+  <Step title="Run nmake">
+    Build all 7-Zip binaries:
+    
+    ```cmd
+    nmake
+    ```
+    
+    This compiles all targets in the UI and Bundles directories.
+  </Step>
+</Steps>
+
+### Other Platform Build Scripts
+
+Use different `vcvars*.bat` files from `VS2022\VC\Auxiliary\Build\` for other platforms:
+
+<CodeGroup>
+
+```cmd x64 (AMD64)
+%comspec% /k "C:\Program Files\VS2022\VC\Auxiliary\Build\vcvars64.bat"
+```
+
+```cmd ARM64 (from x64 host)
+%comspec% /k "C:\Program Files\VS2022\VC\Auxiliary\Build\vcvarsamd64_arm64.bat"
+```
+
+```cmd x86 (from x64 host)
+%comspec% /k "C:\Program Files\VS2022\VC\Auxiliary\Build\vcvarsamd64_x86.bat"
+```
+
+</CodeGroup>
+
+## Building Single Binary
+
+To compile a specific binary, navigate to its project directory and run `nmake`.
+
+### Example: Building 7za.exe
+
+<Steps>
+  <Step title="Navigate to Project Directory">
+    ```cmd
+    cd CPP\7zip\Bundles\Alone\
+    ```
+  </Step>
+  
+  <Step title="Initialize Build Environment">
+    ```cmd
+    %comspec% /k "C:\Program Files\VS2022\VC\Auxiliary\Build\vcvars64.bat"
+    ```
+  </Step>
+  
+  <Step title="Compile">
+    ```cmd
+    nmake
+    ```
+    
+    Output will be in the build directory (e.g., `_o\` or similar).
+  </Step>
+</Steps>
+
+### Other Build Targets
+
+<CodeGroup>
+
+```cmd 7zz.exe (All Formats)
+cd CPP\7zip\Bundles\Alone2\
+nmake
+```
+
+```cmd 7zr.exe (7z Only)
+cd CPP\7zip\Bundles\Alone7z\
+nmake
+```
+
+```cmd 7z.dll (All Formats DLL)
+cd CPP\7zip\Bundles\Format7zF\
+nmake
+```
+
+```cmd 7z.exe (Console)
+cd CPP\7zip\UI\Console\
+nmake
+```
+
+</CodeGroup>
+
+## Build Options
+
+### Static vs Dynamic Linking
+
+**Default**: Static linking to the C runtime library
+
+```cmd
+nmake
+```
+
+**Dynamic linking** to msvcrt.dll:
+
+```cmd
+nmake MY_DYNAMIC_LINK=1
+```
+
+### Platform-Specific Builds
+
+To explicitly set the platform:
+
+```cmd
+nmake PLATFORM=x64
+```
+
+```cmd
+nmake PLATFORM=x86
+```
+
+```cmd
+nmake PLATFORM=arm64
+```
+
+## Output Location
+
+Compiled binaries are typically placed in subdirectories like:
+
+- `_o\` - For default builds
+- `b\` - For some makefile configurations
+
+The exact output directory depends on the makefile and build configuration.
+
+## Troubleshooting
+
+<Warning>
+**Error: "ml.exe not found" or "ml64.exe not found"**
+
+Install Windows SDK that includes the Microsoft Macro Assembler. You can download it from the Microsoft website or install it via Visual Studio Installer.
+</Warning>
+
+<Warning>
+**Error: "Cannot find include files"**
+
+If using MSVC 6.0, ensure Platform SDK directories are configured at the **top** of the include and library paths in Visual Studio settings.
+</Warning>
+
+### Building Without Assembler
+
+If assembler is not available, the C versions of optimized code will be used automatically, but performance may be reduced.
+
+## IDE Development
+
+For development and debugging, you can use `.dsp` project files with Visual Studio:
+
+1. Open the `.dsp` file in Visual Studio
+2. Allow Visual Studio to upgrade the project if prompted
+3. Build using the IDE's build commands
+
+<Note>
+IDE builds are recommended for development only. Production builds should use makefiles for optimal compiler settings.
+</Note>
+
+## Next Steps
+
+After building:
+
+- Test your build by running the executable
+- Compare performance with official builds
+- Review [build customization options](/dev/building#build-methods)
+
+## See Also
+
+- [Building Overview](/dev/building) - General build information
+- [Building on Linux](/dev/linux) - GCC/Clang builds
+- [Building on macOS](/dev/macos) - macOS builds

@@ -1,0 +1,350 @@
+---
+title: Building on Linux
+description: Build 7-Zip from source on Linux using GCC or Clang compilers
+---
+
+7-Zip can be compiled on Linux using GCC or Clang compilers, with optional assembler optimizations for better performance.
+
+## Requirements
+
+### Compiler
+
+<Tabs>
+  <Tab title="GCC">
+    **GCC 4.8 or later** (GCC 9+ recommended)
+    
+    ```bash
+    gcc --version
+    ```
+    
+    Install on Debian/Ubuntu:
+    ```bash
+    sudo apt-get install build-essential
+    ```
+  </Tab>
+  
+  <Tab title="Clang">
+    **Clang** (modern version recommended)
+    
+    ```bash
+    clang --version
+    ```
+    
+    Install on Debian/Ubuntu:
+    ```bash
+    sudo apt-get install clang
+    ```
+  </Tab>
+</Tabs>
+
+### Build Tools
+
+```bash
+sudo apt-get install make
+```
+
+### Assembler (Optional, for Performance)
+
+For x86/x64 optimizations, install one of:
+
+<Tabs>
+  <Tab title="Asmc (Recommended)">
+    **Asmc Macro Assembler** - Recommended for full optimization
+    
+    ```bash
+    git clone https://github.com/nidud/asmc
+    cd asmc
+    # Follow build instructions in repository
+    ```
+  </Tab>
+  
+  <Tab title="UASM">
+    **UASM** - Alternative assembler
+    
+    ```bash
+    git clone https://github.com/Terraspace/UASM
+    cd UASM
+    # Follow build instructions in repository
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+**JWasm is not recommended** - It doesn't support AES instructions used in 7-Zip. The build will fall back to C versions of AES code, reducing performance.
+</Warning>
+
+## Quick Start
+
+Navigate to a bundle directory and build:
+
+<Steps>
+  <Step title="Navigate to Bundle">
+    ```bash
+    cd CPP/7zip/Bundles/Alone2
+    ```
+  </Step>
+  
+  <Step title="Build with make">
+    ```bash
+    make -j -f makefile.gcc
+    ```
+    
+    The `-j` flag enables parallel compilation for faster builds.
+  </Step>
+  
+  <Step title="Run the binary">
+    ```bash
+    ./b/g/7zz
+    ```
+  </Step>
+</Steps>
+
+## Build Configurations
+
+7-Zip provides specialized makefiles for optimized builds:
+
+### Basic Builds (No Assembler)
+
+<CodeGroup>
+
+```bash GCC
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc.mak
+```
+
+```bash Clang
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_clang.mak
+```
+
+</CodeGroup>
+
+### Optimized Builds (With Assembler)
+
+<CodeGroup>
+
+```bash GCC x64 with Assembler
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc_x64.mak
+```
+
+```bash GCC x86 with Assembler
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc_x86.mak
+```
+
+```bash GCC ARM64 with Assembler
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc_arm64.mak
+```
+
+```bash Clang x64 with Assembler
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_clang_x64.mak
+```
+
+</CodeGroup>
+
+## Makefile Variables
+
+You can customize builds using variables with `makefile.gcc`:
+
+### Platform Control
+
+<ResponseField name="IS_X64" type="boolean" default="0">
+  Build for x86-64 architecture
+  
+  ```bash
+  make -f makefile.gcc IS_X64=1
+  ```
+</ResponseField>
+
+<ResponseField name="USE_ASM" type="boolean" default="0">
+  Enable assembler optimizations
+  
+  ```bash
+  make -f makefile.gcc IS_X64=1 USE_ASM=1
+  ```
+</ResponseField>
+
+<ResponseField name="MY_ASM" type="string" default="asmc">
+  Specify assembler program
+  
+  ```bash
+  make -f makefile.gcc IS_X64=1 USE_ASM=1 MY_ASM=/path/to/uasm
+  ```
+</ResponseField>
+
+### RAR Support Control
+
+<ResponseField name="DISABLE_RAR" type="boolean" default="0">
+  Remove all RAR-related code
+  
+  ```bash
+  make -f makefile.gcc DISABLE_RAR=1
+  ```
+</ResponseField>
+
+<ResponseField name="DISABLE_RAR_COMPRESS" type="boolean" default="0">
+  Remove RAR decompression codecs (keeps archive listing support)
+  
+  ```bash
+  make -f makefile.gcc DISABLE_RAR_COMPRESS=1
+  ```
+</ResponseField>
+
+### Assembler Selection
+
+<ResponseField name="USE_JWASM" type="boolean" default="0">
+  Use JWasm instead of Asmc (not recommended)
+  
+  ```bash
+  make -f makefile.gcc USE_JWASM=1
+  ```
+</ResponseField>
+
+<Warning>
+When using `USE_JWASM=1`, AES code from `AesOpt.c` will be used instead of assembler `AesOpt.asm` because JWasm doesn't support AES instructions.
+</Warning>
+
+## Build Examples
+
+### Standard x64 Build Without Assembler
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc.mak
+```
+
+Output: `b/g/7zz`
+
+### Optimized x64 Build With Assembler
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc_x64.mak
+```
+
+Output: `b/g_x64/7zz`
+
+### Build Without RAR Support
+
+```bash
+cd CPP/7zip/Bundles/Alone2
+make -j -f ../../cmpl_gcc.mak DISABLE_RAR=1
+```
+
+### Build With Custom UASM Assembler
+
+```bash
+UASM="$PWD/uasm"
+cd CPP/7zip/Bundles/Alone2
+make -f makefile.gcc -j IS_X64=1 USE_ASM=1 MY_ASM="$UASM"
+```
+
+## Build Targets
+
+Different bundle directories produce different binaries:
+
+| Directory | Output | Description |
+|-----------|--------|-------------|
+| `Bundles/Alone2` | 7zz | Standalone binary (all formats) |
+| `Bundles/Alone` | 7za | Standalone binary (limited formats) |
+| `Bundles/Alone7z` | 7zr | Standalone binary (7z only) |
+| `Bundles/Format7zF` | 7z.so | Shared library (all formats) |
+| `UI/Console` | 7z | Console binary (requires shared lib) |
+
+## Compiler Flags
+
+The build system uses the following optimization flags (from `7zip_gcc.mak`):
+
+```makefile
+CFLAGS_BASE = -O2 -Wall -Wextra -Werror \
+  -D_REENTRANT -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE \
+  -fPIC
+```
+
+Additional optimization options:
+- `-flto` - Link-time optimization (enabled in some configs)
+- `-ffunction-sections` - Separate functions for linker optimization
+
+## Output Directory Structure
+
+Builds create output in subdirectories:
+
+- `b/g/` - GCC builds (general)
+- `b/g_x64/` - GCC x64 builds
+- `b/g_arm64/` - GCC ARM64 builds
+- `_o/` - Default output directory for `makefile.gcc`
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: assembler not found">
+    If building with `USE_ASM=1` but assembler is missing:
+    
+    ```bash
+    # Either install assembler
+    git clone https://github.com/nidud/asmc
+    
+    # Or build without assembler
+    make -j -f ../../cmpl_gcc.mak
+    ```
+  </Accordion>
+  
+  <Accordion title="Error: pthread library not found">
+    Install pthread development libraries:
+    
+    ```bash
+    sudo apt-get install libpthread-stubs0-dev
+    ```
+  </Accordion>
+  
+  <Accordion title="Slow build performance">
+    Use the `-j` flag to enable parallel compilation:
+    
+    ```bash
+    make -j$(nproc) -f makefile.gcc
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Comparison
+
+Builds with assembler optimizations provide significant performance improvements:
+
+<Info>
+**With Assembler** (`cmpl_gcc_x64.mak`):
+- Optimized CRC32 calculation
+- Hardware AES encryption (if CPU supports)
+- Faster LZMA compression/decompression
+- Optimized SHA-256 hashing
+
+**Without Assembler** (`cmpl_gcc.mak`):
+- Uses C implementations for all codecs
+- Portable to any architecture
+- Slower but still functional
+</Info>
+
+## Cross-Compilation
+
+To cross-compile for a different architecture:
+
+```bash
+export CROSS_COMPILE=aarch64-linux-gnu-
+make -f makefile.gcc -j
+```
+
+The `var_gcc.mak` file supports the `CROSS_COMPILE` variable for setting the compiler prefix.
+
+## Next Steps
+
+- Test your build: `./b/g/7zz --help`
+- Benchmark performance: `./b/g/7zz b`
+- Review [build options](/dev/building#build-methods)
+
+## See Also
+
+- [Building Overview](/dev/building) - General build information
+- [Building on Windows](/dev/windows) - MSVC builds
+- [Building on macOS](/dev/macos) - macOS builds

@@ -1,0 +1,375 @@
+---
+title: Update Command (u)
+description: Update files in archives with advanced options
+---
+
+The `u` (update) command updates files in archives with fine-grained control over which files are updated, added, or refreshed based on timestamps and existence.
+
+## Syntax
+
+```bash
+7z u [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Description
+
+The update command provides sophisticated archive maintenance by:
+- Updating existing files with newer versions
+- Adding new files not in the archive
+- Skipping files that haven't changed
+- Supporting complex update modes
+- Preserving archive structure and metadata
+
+<Note>
+  The main difference between `a` (add) and `u` (update): the `a` command always adds/updates files, while `u` compares timestamps and only updates newer files by default.
+</Note>
+
+## Common Options
+
+<ParamField path="archive_name" type="string" required>
+  Name of the archive to update. Must already exist.
+</ParamField>
+
+<ParamField path="file_names" type="string">
+  Files or directories to update. Supports wildcards.
+</ParamField>
+
+<ParamField path="-u{Action}" type="string">
+  Set update action mode. Controls behavior for different file states.
+  
+  Format: `-u[-][p#][q#][r#][x#][y#][z#][!newArchiveName]`
+  
+  See [Update Modes](#update-modes) below.
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Set archive type.
+  
+  **Example:** `-t7z`
+</ParamField>
+
+<ParamField path="-mx{N}" type="number">
+  Set compression level (0-9).
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Set password for encrypted archives.
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories.
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files by pattern.
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include files by pattern.
+</ParamField>
+
+<ParamField path="-w{path}" type="string">
+  Set working directory.
+</ParamField>
+
+## Update Modes
+
+The `-u` switch controls update behavior with a complex but powerful syntax:
+
+```
+-u[-][p#][q#][r#][x#][y#][z#][!newArchiveName]
+```
+
+### State Codes
+
+Each letter represents a file state:
+
+| Code | State | Description |
+|------|-------|-------------|
+| `p` | File exists in archive and on disk | Both versions exist |
+| `q` | File exists in archive only | Deleted from disk |
+| `r` | File exists on disk only | New file not in archive |
+| `x` | File in archive is newer | Archive version is newer |
+| `y` | File on disk is newer | Disk version is newer |
+| `z` | Files are same age | Timestamps match |
+
+### Action Numbers
+
+Each state can have an action:
+
+| Number | Action |
+|--------|--------|
+| 0 | Ignore this file |
+| 1 | Copy from archive to temp archive |
+| 2 | Copy from disk to temp archive |
+| 3 | Copy from both (archive and disk) |
+
+### Default Update Mode
+
+Without `-u`, the update command uses:
+```
+-up0q0r2x1y2z1
+```
+
+Meaning:
+- `p0` - If in both: ignore (no update)
+- `q0` - If in archive only: ignore (keep in archive)
+- `r2` - If on disk only: add from disk
+- `x1` - If archive is newer: keep archive version
+- `y2` - If disk is newer: update from disk
+- `z1` - If same age: keep archive version
+
+## Examples
+
+### Basic update (newer files only)
+```bash
+7z u archive.7z files/
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Scanning the drive:
+3 folders, 12 files, 45678 bytes (45 KiB)
+
+Updating archive: archive.7z
+
+Items to compress: 5
+
+
+Files read from disk: 5
+Archive size: 25678 bytes (26 KiB)
+Everything is Ok
+```
+
+### Update with maximum compression
+```bash
+7z u -mx=9 archive.7z files/
+```
+
+### Update specific files
+```bash
+7z u archive.7z updated_file.txt
+```
+
+### Update all text files
+```bash
+7z u archive.7z *.txt -r
+```
+
+### Synchronize archive with directory
+```bash
+7z u -uq0r2x2y2z0!sync.7z archive.7z files/
+```
+This creates `sync.7z` that exactly matches the `files/` directory.
+
+### Update and delete removed files
+```bash
+7z u -up1q0r2x1y2z1 archive.7z files/
+```
+
+## Advanced Update Modes
+
+### Synchronization Mode
+
+Create an archive that exactly mirrors a directory:
+```bash
+7z u -uq0r2x2y2z0!synced.7z original.7z files/
+```
+
+- `q0` - Remove files deleted from disk
+- `r2` - Add new files from disk  
+- `x2` - Use newer file (from disk if disk is newer)
+- `y2` - Use newer file (from disk if disk is newer)
+- `z0` - When same, ignore (keeps archive version)
+
+### Incremental Backup
+
+Update only changed files:
+```bash
+7z u -up0q3r2x2y2z0 archive.7z files/
+```
+
+### Freshen Existing Files
+
+Update only files that already exist in archive:
+```bash
+7z u -up0q0r0x1y2z1 archive.7z files/
+```
+
+- `r0` - Don't add new files
+- `y2` - Update with newer files from disk
+
+### Add New Files Only
+
+Add files not in archive, don't update existing:
+```bash
+7z u -up0q0r2x0y0z0 archive.7z files/
+```
+
+- `p0` - Ignore files in both
+- `r2` - Add files only on disk
+
+## Complex Examples
+
+### Update with password
+```bash
+7z u -p archive.7z files/
+```
+**Prompts for password:**
+```
+Enter password (will not be echoed):
+```
+
+### Update excluding patterns
+```bash
+7z u archive.7z files/ -x!*.tmp -x!*.bak
+```
+
+### Update with new compression method
+```bash
+7z u -m0=LZMA2 -md=64m archive.7z files/
+```
+
+### Update and show differences
+```bash
+7z u -bb2 archive.7z files/
+```
+
+### Conditional update based on size
+```bash
+# Update only files larger than 1MB
+find files/ -type f -size +1M | 7z u archive.7z @stdin
+```
+
+### Update multiple archives
+```bash
+for archive in *.7z; do
+    7z u "$archive" files/
+done
+```
+
+## Update vs Add Command
+
+| Feature | Update (u) | Add (a) |
+|---------|-----------|----------|
+| Check timestamps | Yes, by default | No |
+| Skip unchanged files | Yes | No |
+| Update modes | Configurable | Simple |
+| Performance | Faster (skips unchanged) | Slower (processes all) |
+| Use case | Incremental updates | Create/full refresh |
+
+### When to Use Update
+
+- **Incremental backups** - Only backup changed files
+- **Syncing archives** - Keep archive matching directory
+- **Efficiency** - Skip unchanged files to save time
+- **Selective updates** - Complex update logic needed
+
+### When to Use Add
+
+- **Creating archives** - New archive from scratch
+- **Full refresh** - Rebuild entire archive
+- **Simplicity** - Don't need timestamp checking
+- **Force update** - Update all files regardless of timestamp
+
+## Scripting Examples
+
+### Daily Incremental Backup
+```bash
+#!/bin/bash
+DATE=$(date +%Y%m%d)
+ARCHIVE="backup-${DATE}.7z"
+SOURCE="/home/user/documents"
+
+if [ -f "$ARCHIVE" ]; then
+    # Update existing archive
+    7z u "$ARCHIVE" "$SOURCE" -up0q3r2x2y2z0
+else
+    # Create new archive
+    7z a "$ARCHIVE" "$SOURCE"
+fi
+```
+
+### Smart Update Script
+```bash
+#!/bin/bash
+# Update archive only if source files changed
+
+ARCHIVE="archive.7z"
+SOURCE="files/"
+LOCKFILE="/tmp/archive.lock"
+
+if [ -f "$LOCKFILE" ]; then
+    echo "Update already in progress"
+    exit 1
+fi
+
+touch "$LOCKFILE"
+trap "rm -f $LOCKFILE" EXIT
+
+if [ -f "$ARCHIVE" ]; then
+    echo "Updating $ARCHIVE..."
+    7z u -bb1 "$ARCHIVE" "$SOURCE"
+    if [ $? -eq 0 ]; then
+        echo "Update successful"
+    else
+        echo "Update failed with exit code $?"
+        exit 1
+    fi
+else
+    echo "Archive not found, creating new archive"
+    7z a "$ARCHIVE" "$SOURCE"
+fi
+```
+
+### Synchronize Directory to Archive
+```bash
+#!/bin/bash
+# Create archive that exactly mirrors directory
+
+SOURCE="/data/important"
+ARCHIVE="/backup/important.7z"
+TEMP_ARCHIVE="/backup/temp.7z"
+
+# Create synchronized copy
+if [ -f "$ARCHIVE" ]; then
+    7z u -uq0r2x2y2z0!"$TEMP_ARCHIVE" "$ARCHIVE" "$SOURCE"
+    if [ $? -eq 0 ]; then
+        mv "$TEMP_ARCHIVE" "$ARCHIVE"
+        echo "Archive synchronized with source"
+    fi
+else
+    7z a "$ARCHIVE" "$SOURCE"
+fi
+```
+
+## Performance Tips
+
+1. **Use update instead of recreating** - Much faster for large archives
+2. **Enable multi-threading** - Add `-mmt=on` for faster compression
+3. **Adjust compression level** - Use `-mx=1` for faster updates
+4. **Use solid archives carefully** - Solid mode requires recompression
+5. **Skip unchanged files** - Default behavior saves significant time
+
+<Note>
+  For solid archives (`-ms=on`), updating files requires recompressing the entire solid block, which can be slow. Non-solid archives allow updating individual files independently.
+</Note>
+
+<Warning>
+  The update command requires the archive to already exist. Use the `a` (add) command to create a new archive.
+</Warning>
+
+<Tip>
+  To see which files would be updated without actually updating:
+  ```bash
+  7z u -bb2 -bd archive.7z files/ > update_preview.log 2>&1
+  ```
+  Check the log before running the actual update.
+</Tip>
+
+## Related Commands
+
+- [Add Command (a)](/commands/add) - Create or add to archives
+- [Delete Command (d)](/commands/delete) - Remove files from archives
+- [List Command (l)](/commands/list) - View archive contents

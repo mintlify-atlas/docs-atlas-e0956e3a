@@ -1,0 +1,469 @@
+---
+title: Installing 7-Zip
+description: Complete installation guide for 7-Zip on Windows, Linux, and macOS with package managers and building from source.
+---
+
+# Installing 7-Zip
+
+7-Zip is available for Windows, Linux, and macOS. This guide covers multiple installation methods for each platform.
+
+## Windows Installation
+
+<Tabs>
+  <Tab title="Windows Installer">
+    The easiest way to install 7-Zip on Windows is using the official installer:
+
+    <Steps>
+      <Step title="Download the installer">
+        Visit [7-zip.org](https://www.7-zip.org/) and download the appropriate installer:
+        - **64-bit Windows**: 7z####-x64.exe (recommended for modern systems)
+        - **32-bit Windows**: 7z####.exe
+        - **ARM64 Windows**: 7z####-arm64.exe (for ARM-based Windows devices)
+      </Step>
+
+      <Step title="Run the installer">
+        Double-click the downloaded executable and follow the installation wizard. The default installation directory is `C:\Program Files\7-Zip\`.
+      </Step>
+
+      <Step title="Verify installation">
+        Open Command Prompt and verify 7-Zip is installed:
+
+        ```cmd
+        "C:\Program Files\7-Zip\7z.exe" --help
+        ```
+
+        You should see the 7-Zip help output with version information.
+      </Step>
+
+      <Step title="Add to PATH (optional)">
+        To use `7z` from any directory, add 7-Zip to your system PATH:
+        1. Open System Properties → Environment Variables
+        2. Edit the `Path` variable
+        3. Add `C:\Program Files\7-Zip\`
+        4. Click OK and restart Command Prompt
+      </Step>
+    </Steps>
+
+    <Info>
+    The Windows installer includes 7-Zip File Manager (7zFM.exe), Windows Shell integration, and all command-line tools.
+    </Info>
+  </Tab>
+
+  <Tab title="Winget">
+    Install 7-Zip using Windows Package Manager (winget):
+
+    ```powershell
+    winget install 7zip.7zip
+    ```
+
+    This automatically installs the latest version and adds 7-Zip to your PATH.
+  </Tab>
+
+  <Tab title="Chocolatey">
+    Install using Chocolatey package manager:
+
+    ```powershell
+    choco install 7zip
+    ```
+
+    Or install only the command-line version:
+
+    ```powershell
+    choco install 7zip.commandline
+    ```
+  </Tab>
+
+  <Tab title="Build from Source">
+    Build 7-Zip from source on Windows:
+
+    <Steps>
+      <Step title="Install prerequisites">
+        - **Visual Studio 2017/2019/2022** (Community Edition or higher)
+        - **Windows SDK**
+        - **Microsoft Macro Assembler** (ml.exe for x86, ml64.exe for x64)
+      </Step>
+
+      <Step title="Download source code">
+        Download the 7-Zip source package from [7-zip.org](https://www.7-zip.org/) and extract it.
+      </Step>
+
+      <Step title="Open Visual Studio Developer Command Prompt">
+        Use the appropriate command prompt for your target platform:
+        - **x64**: Developer Command Prompt for VS (x64)
+        - **x86**: Developer Command Prompt for VS (x86)
+        - **ARM64**: Use cross-compilation tools
+      </Step>
+
+      <Step title="Compile 7-Zip">
+        Navigate to the source directory and compile:
+
+        ```cmd
+        cd CPP\7zip
+        nmake
+        ```
+
+        Or compile a specific binary:
+
+        ```cmd
+        cd CPP\7zip\Bundles\Alone2
+        nmake
+        ```
+
+        This creates the `7zz.exe` standalone console application.
+      </Step>
+
+      <Step title="Set platform (optional)">
+        To compile for a specific platform:
+
+        ```cmd
+        nmake PLATFORM=x64
+        ```
+
+        Supported platforms: `x64`, `x86`, `arm64`, `arm`
+      </Step>
+    </Steps>
+
+    <Note>
+    The makefile uses static linking to the runtime library by default. Add `MY_DYNAMIC_LINK=1` to use dynamic linking (msvcrt.dll).
+    </Note>
+  </Tab>
+</Tabs>
+
+## Linux Installation
+
+<Tabs>
+  <Tab title="Debian/Ubuntu">
+    Install 7-Zip using APT package manager:
+
+    ```bash
+    sudo apt update
+    sudo apt install 7zip
+    ```
+
+    Or install the older p7zip package (note: outdated):
+
+    ```bash
+    sudo apt install p7zip-full p7zip-rar
+    ```
+
+    <Info>
+    The `7zip` package provides the modern 7-Zip version. The `p7zip` packages are based on an older 7-Zip version (16.02) and may not include the latest features.
+    </Info>
+  </Tab>
+
+  <Tab title="RHEL/Fedora/CentOS">
+    Install using DNF or YUM:
+
+    **Fedora:**
+    ```bash
+    sudo dnf install 7zip
+    ```
+
+    **RHEL/CentOS (with EPEL):**
+    ```bash
+    sudo yum install epel-release
+    sudo yum install p7zip p7zip-plugins
+    ```
+  </Tab>
+
+  <Tab title="Arch Linux">
+    Install using pacman:
+
+    ```bash
+    sudo pacman -S 7zip
+    ```
+
+    Or install p7zip:
+
+    ```bash
+    sudo pacman -S p7zip
+    ```
+  </Tab>
+
+  <Tab title="Build from Source">
+    Build 7-Zip from source on Linux:
+
+    <Steps>
+      <Step title="Install build dependencies">
+        **Debian/Ubuntu:**
+        ```bash
+        sudo apt install build-essential make gcc g++
+        ```
+
+        **Fedora/RHEL:**
+        ```bash
+        sudo dnf install gcc gcc-c++ make
+        ```
+
+        **For assembler optimizations (x86-64):**
+        ```bash
+        # Install UASM or Asmc for faster binaries
+        git clone https://github.com/Terraspace/UASM.git
+        cd UASM
+        make -f Makefile
+        sudo make install
+        ```
+      </Step>
+
+      <Step title="Download source code">
+        ```bash
+        wget https://www.7-zip.org/a/7z####-src.tar.xz
+        tar -xf 7z####-src.tar.xz
+        cd 7z####-src
+        ```
+      </Step>
+
+      <Step title="Compile 7-Zip">
+        Navigate to the bundle directory:
+
+        ```bash
+        cd CPP/7zip/Bundles/Alone2
+        ```
+
+        **Basic compilation (GCC, no assembler):**
+        ```bash
+        make -j -f ../../cmpl_gcc.mak
+        ```
+
+        **Optimized compilation (CLANG):**
+        ```bash
+        make -j -f ../../cmpl_clang.mak
+        ```
+
+        **x86-64 with assembler (fastest):**
+        ```bash
+        make -j -f ../../cmpl_gcc_x64.mak
+        ```
+
+        **ARM64 with assembler:**
+        ```bash
+        make -j -f ../../cmpl_gcc_arm64.mak
+        ```
+      </Step>
+
+      <Step title="Install the binary">
+        ```bash
+        sudo cp _o/7zz /usr/local/bin/
+        sudo chmod +x /usr/local/bin/7zz
+        ```
+
+        Verify installation:
+        ```bash
+        7zz --help
+        ```
+      </Step>
+    </Steps>
+
+    <Tip>
+    Use the `-j` flag with make to enable parallel compilation and speed up the build process.
+    </Tip>
+
+    ### Compilation Options
+
+    You can customize the build with additional variables:
+
+    **Disable RAR support completely:**
+    ```bash
+    make -j -f ../../cmpl_gcc.mak DISABLE_RAR=1
+    ```
+
+    **Disable RAR compression (keep extraction):**
+    ```bash
+    make -j -f ../../cmpl_gcc.mak DISABLE_RAR_COMPRESS=1
+    ```
+
+    **Use UASM assembler:**
+    ```bash
+    UASM="/usr/local/bin/uasm"
+    make -f makefile.gcc -j IS_X64=1 USE_ASM=1 MY_ASM="$UASM"
+    ```
+  </Tab>
+</Tabs>
+
+## macOS Installation
+
+<Tabs>
+  <Tab title="Homebrew">
+    Install 7-Zip using Homebrew:
+
+    ```bash
+    brew install 7zip
+    ```
+
+    Or install p7zip (older version):
+
+    ```bash
+    brew install p7zip
+    ```
+
+    Verify installation:
+    ```bash
+    7zz --help
+    ```
+  </Tab>
+
+  <Tab title="MacPorts">
+    Install using MacPorts:
+
+    ```bash
+    sudo port install 7zip
+    ```
+  </Tab>
+
+  <Tab title="Build from Source">
+    Build 7-Zip natively on macOS:
+
+    <Steps>
+      <Step title="Install Xcode Command Line Tools">
+        ```bash
+        xcode-select --install
+        ```
+      </Step>
+
+      <Step title="Download source code">
+        ```bash
+        curl -O https://www.7-zip.org/a/7z####-src.tar.xz
+        tar -xf 7z####-src.tar.xz
+        cd 7z####-src
+        ```
+      </Step>
+
+      <Step title="Compile for macOS">
+        **Intel (x86-64):**
+        ```bash
+        cd CPP/7zip/Bundles/Alone2
+        make -j -f ../../cmpl_gcc_x64.mak
+        ```
+
+        **Apple Silicon (ARM64):**
+        ```bash
+        cd CPP/7zip/Bundles/Alone2
+        make -j -f ../../cmpl_mac_arm64.mak
+        ```
+      </Step>
+
+      <Step title="Install the binary">
+        ```bash
+        sudo cp _o/7zz /usr/local/bin/
+        ```
+
+        Verify installation:
+        ```bash
+        7zz --help
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Available Binaries
+
+7-Zip provides different binaries for different use cases:
+
+| Binary | Description | Format Support |
+|--------|-------------|----------------|
+| **7z** (Windows) | Full-featured command-line version | All formats |
+| **7zz** (Linux/macOS) | Standalone console version | All formats |
+| **7za** | Standalone reduced version | 7z, xz, cab, zip, gzip, bzip2, tar |
+| **7zr** | Minimal standalone version | 7z only |
+| **7zG** (Windows) | GUI application | All formats |
+| **7zFM** (Windows) | File Manager interface | All formats |
+
+<Note>
+On Linux and macOS, the primary binary is `7zz`. On Windows, both `7z.exe` and `7zz.exe` are available, with `7z.exe` being the traditional name.
+</Note>
+
+## Verifying Installation
+
+After installation, verify 7-Zip is working correctly:
+
+<CodeGroup>
+```bash Linux/macOS
+# Check version
+7zz --help | head -n 3
+
+# Test compression
+7zz a test.7z /etc/hosts
+
+# List archive contents
+7zz l test.7z
+
+# Extract archive
+7zz x test.7z
+```
+
+```cmd Windows
+# Check version
+7z --help
+
+# Test compression
+7z a test.7z C:\Windows\System32\drivers\etc\hosts
+
+# List archive contents
+7z l test.7z
+
+# Extract archive
+7z x test.7z
+```
+</CodeGroup>
+
+## Differences: 7-Zip vs p7zip
+
+<Info>
+There are two different Linux/macOS ports of 7-Zip:
+
+1. **7-Zip for Linux/macOS** - Modern official port with all latest features from 7-Zip for Windows
+2. **p7zip** - Independent port, now outdated (last version 16.02)
+
+The modern 7-Zip package is recommended for all new installations.
+</Info>
+
+## Troubleshooting
+
+### Command not found
+
+If you get "command not found" after installation:
+
+**Linux/macOS:**
+```bash
+# Find 7-Zip installation
+which 7zz
+which 7z
+
+# Add to PATH if needed
+export PATH="$PATH:/usr/local/bin"
+```
+
+**Windows:**
+```cmd
+# Use full path
+"C:\Program Files\7-Zip\7z.exe" --help
+
+# Or add to PATH in Environment Variables
+```
+
+### Permission denied (Linux/macOS)
+
+If you get permission errors:
+
+```bash
+sudo chmod +x /usr/local/bin/7zz
+```
+
+### Missing dependencies
+
+If compilation fails with missing dependencies:
+
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential
+
+# Fedora/RHEL
+sudo dnf groupinstall "Development Tools"
+```
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Now that 7-Zip is installed, learn the basic commands to compress and extract files
+</Card>

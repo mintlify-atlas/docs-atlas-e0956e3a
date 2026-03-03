@@ -1,0 +1,375 @@
+---
+title: LZMA Compression
+description: LZMA compression method details, parameters, and usage
+---
+
+LZMA (Lempel-Ziv-Markov chain Algorithm) is an improved version of the famous LZ77 compression algorithm. It was improved in the way of maximum increasing of compression ratio, keeping high decompression speed and low memory requirements for decompressing.
+
+## Method ID
+
+**ID:** `03 01 01` (hex)
+
+The LZMA method is identified by the 3-byte sequence `03 01 01` in 7z archive format.
+
+## Overview
+
+LZMA provides excellent compression ratios through:
+- Dictionary-based LZ77 algorithm
+- Range encoding for entropy coding
+- Markov chain-based probability model
+- Optimized match finding
+
+<Info>
+LZMA is the original algorithm used in .lzma files and was the default method in 7z archives before LZMA2 was introduced. It remains widely used for single-threaded compression.
+</Info>
+
+## Properties File Format
+
+LZMA compressed files have a 13-byte header:
+
+```
+Offset  Size  Description
+  0      1    Special LZMA properties (lc, lp, pb in encoded form)
+  1      4    Dictionary size (little endian)
+  5      8    Uncompressed size (little endian, -1 means unknown)
+  13     -    Compressed data
+```
+
+## Compression Parameters
+
+LZMA supports the following encoding properties defined in `LzmaEnc.h:13-39`:
+
+<Accordion title="Dictionary Size (dictSize)">
+  **Type:** `UInt32`  
+  **Range:** `(1 << 12)` to `(1 << 27)` for 32-bit, `(1 << 12)` to `(3 << 29)` for 64-bit  
+  **Default:** `1 << 24` (16 MB)
+  
+  The dictionary size determines how far back the encoder can reference previous data. Larger dictionaries provide better compression but require more memory.
+  
+  ```c
+  UInt32 dictSize; /* (1 << 12) <= dictSize <= (1 << 27) for 32-bit version
+                      (1 << 12) <= dictSize <= (3 << 29) for 64-bit version
+                      default = (1 << 24) */
+  ```
+  
+  <Tip>
+  The dictionary size is automatically adjusted based on compression level:
+  - Level 0-4: `1 << (level * 2 + 16)`
+  - Level 5+: `1 << (level + 20)`
+  </Tip>
+</Accordion>
+
+<Accordion title="Literal Context Bits (lc)">
+  **Type:** `int`  
+  **Range:** 0 to 8  
+  **Default:** 3
+  
+  Number of high bits of the previous byte used as context for literal encoding.
+  
+  ```c
+  int lc; /* 0 <= lc <= 8, default = 3 */
+  ```
+  
+  Higher values can improve compression of text files but increase memory usage.
+</Accordion>
+
+<Accordion title="Literal Position Bits (lp)">
+  **Type:** `int`  
+  **Range:** 0 to 4  
+  **Default:** 0
+  
+  Number of low bits of the current position used as context for literal encoding.
+  
+  ```c
+  int lp; /* 0 <= lp <= 4, default = 0 */
+  ```
+  
+  <Note>
+  The constraint `lc + lp <= 4` is recommended but not enforced. Higher values significantly increase memory usage.
+  </Note>
+</Accordion>
+
+<Accordion title="Position Bits (pb)">
+  **Type:** `int`  
+  **Range:** 0 to 4  
+  **Default:** 2
+  
+  Number of low bits of the current position used as context for match length encoding.
+  
+  ```c
+  int pb; /* 0 <= pb <= 4, default = 2 */
+  ```
+</Accordion>
+
+<Accordion title="Compression Level (level)">
+  **Type:** `int`  
+  **Range:** 0 to 9  
+  **Default:** 5
+  
+  Compression level affects multiple parameters automatically:
+  
+  ```c
+  int level; /* 0 <= level <= 9 */
+  ```
+  
+  | Level | Dict Size | Algorithm | Fast Bytes |
+  |-------|-----------|-----------|------------|
+  | 0 | 64 KB | Fast | 32 |
+  | 1 | 256 KB | Fast | 32 |
+  | 2 | 1 MB | Fast | 32 |
+  | 3 | 4 MB | Fast | 32 |
+  | 4 | 16 MB | Fast | 32 |
+  | 5 | 16 MB | Normal | 32 |
+  | 6 | 32 MB | Normal | 32 |
+  | 7 | 64 MB | Normal | 64 |
+  | 8 | 128 MB | Normal | 64 |
+  | 9 | 256 MB | Normal | 64 |
+</Accordion>
+
+<Accordion title="Algorithm (algo)">
+  **Type:** `int`  
+  **Range:** 0 (fast) or 1 (normal)  
+  **Default:** 1
+  
+  ```c
+  int algo; /* 0 - fast, 1 - normal, default = 1 */
+  ```
+  
+  - **Fast (0):** Hash chain mode, faster compression, lower ratio
+  - **Normal (1):** Binary tree mode, slower compression, better ratio
+</Accordion>
+
+<Accordion title="Fast Bytes (fb)">
+  **Type:** `int`  
+  **Range:** 5 to 273  
+  **Default:** 32 (level < 7) or 64 (level >= 7)
+  
+  ```c
+  int fb; /* 5 <= fb <= 273, default = 32 */
+  ```
+  
+  Number of fast bytes. Higher values can improve compression ratio but slow down encoding.
+</Accordion>
+
+<Accordion title="Binary Tree Mode (btMode)">
+  **Type:** `int`  
+  **Range:** 0 (hash chain) or 1 (binary tree)  
+  **Default:** 1
+  
+  ```c
+  int btMode; /* 0 - hashChain Mode, 1 - binTree mode - normal, default = 1 */
+  ```
+</Accordion>
+
+<Accordion title="Number of Hash Bytes (numHashBytes)">
+  **Type:** `int`  
+  **Range:** 2, 3, or 4  
+  **Default:** 4
+  
+  ```c
+  int numHashBytes; /* 2, 3 or 4, default = 4 */
+  ```
+</Accordion>
+
+<Accordion title="Match Counter (mc)">
+  **Type:** `UInt32`  
+  **Range:** 1 to `1 << 30`  
+  **Default:** 32
+  
+  ```c
+  UInt32 mc; /* 1 <= mc <= (1 << 30), default = 32 */
+  ```
+  
+  Maximum number of match candidates to check.
+</Accordion>
+
+<Accordion title="Number of Threads (numThreads)">
+  **Type:** `int`  
+  **Range:** 1 or 2  
+  **Default:** 2 (if multithreading available)
+  
+  ```c
+  int numThreads; /* 1 or 2, default = 2 */
+  ```
+  
+  <Warning>
+  LZMA supports only limited multithreading (up to 2 threads) for match finding. For better multithreading support, use LZMA2.
+  </Warning>
+</Accordion>
+
+<Accordion title="Write End Mark (writeEndMark)">
+  **Type:** `unsigned`  
+  **Range:** 0 or 1  
+  **Default:** 0
+  
+  ```c
+  unsigned writeEndMark; /* 0 - do not write EOPM, 1 - write EOPM, default = 0 */
+  ```
+  
+  Whether to write an end-of-payload marker (EOPM).
+</Accordion>
+
+## Memory Requirements
+
+### Encoding
+
+Memory required for compression (`LzmaEnc.c:41`):
+
+```
+Memory = (dictSize * 11.5 + 6 MB) + state_size
+```
+
+Where:
+- `dictSize`: Dictionary size in bytes
+- `state_size`: `(4 + (1.5 << (lc + lp))) KB`
+- Default state_size (lc=3, lp=0): 16 KB
+
+<Info>
+For level 5 (16 MB dictionary): ~190 MB for encoding
+
+For level 9 (256 MB dictionary): ~2.9 GB for encoding
+</Info>
+
+### Decoding
+
+Memory required for decompression:
+
+```
+Memory = dictSize + state_size
+```
+
+- Stack usage: 200-400 bytes for local variables
+- Default state_size: 16 KB
+- Dictionary buffer: Equal to dictionary size used during encoding
+
+<Tip>
+Decompression requires significantly less memory than compression. A file compressed with a 256 MB dictionary only needs ~256 MB to decompress.
+</Tip>
+
+## API Usage
+
+### Encoding
+
+```c
+#include "LzmaEnc.h"
+
+// Initialize properties
+CLzmaEncProps props;
+LzmaEncProps_Init(&props);
+props.level = 5;
+props.dictSize = 1 << 24;  // 16 MB
+props.lc = 3;
+props.lp = 0;
+props.pb = 2;
+
+// Create encoder
+CLzmaEncHandle enc = LzmaEnc_Create(&g_Alloc);
+if (enc == 0)
+  return SZ_ERROR_MEM;
+
+// Set properties
+SRes res = LzmaEnc_SetProps(enc, &props);
+
+// Write properties to header
+Byte header[LZMA_PROPS_SIZE + 8];
+size_t headerSize = LZMA_PROPS_SIZE;
+res = LzmaEnc_WriteProperties(enc, header, &headerSize);
+
+// Encode
+res = LzmaEnc_Encode(enc, &outStream.funcTable, &inStream.funcTable,
+  NULL, &g_Alloc, &g_Alloc);
+
+// Destroy encoder
+LzmaEnc_Destroy(enc, &g_Alloc, &g_Alloc);
+```
+
+### Decoding
+
+```c
+#include "LzmaDec.h"
+
+// Read LZMA properties (5 bytes)
+unsigned char header[LZMA_PROPS_SIZE + 8];
+ReadFile(inFile, header, sizeof(header));
+
+// Allocate decoder
+CLzmaDec state;
+LzmaDec_Construct(&state);
+res = LzmaDec_Allocate(&state, header, LZMA_PROPS_SIZE, &g_Alloc);
+
+// Initialize decoder
+LzmaDec_Init(&state);
+
+// Decode
+for (;;) {
+  int res = LzmaDec_DecodeToBuf(&state, dest, &destLen,
+    src, &srcLen, finishMode);
+  if (res != SZ_OK)
+    break;
+}
+
+// Free decoder
+LzmaDec_Free(&state, &g_Alloc);
+```
+
+## Error Codes
+
+LZMA encoder and decoder can return the following status codes:
+
+| Code | Description |
+|------|-------------|
+| `SZ_OK` | Success |
+| `SZ_ERROR_DATA` | Data error during decoding |
+| `SZ_ERROR_MEM` | Memory allocation error |
+| `SZ_ERROR_PARAM` | Incorrect parameter in properties |
+| `SZ_ERROR_UNSUPPORTED` | Unsupported properties |
+| `SZ_ERROR_INPUT_EOF` | Needs more bytes in input buffer |
+| `SZ_ERROR_WRITE` | Write callback error |
+| `SZ_ERROR_OUTPUT_EOF` | Output buffer overflow |
+| `SZ_ERROR_PROGRESS` | Break from progress callback |
+| `SZ_ERROR_THREAD` | Multithreading error |
+
+## Performance Characteristics
+
+<Note>
+Typical performance on modern hardware (Intel Core i7, 3.5 GHz):
+
+**Compression:**
+- Level 5: ~2-3 MB/s
+- Level 9: ~1-2 MB/s
+
+**Decompression:**
+- ~20-40 MB/s (single-threaded)
+
+**Compression ratio:**
+- Text files: 15-25% of original size
+- Executable files: 30-50% of original size
+- Multimedia files: 70-95% of original size (poorly compressible)
+</Note>
+
+## Command Line Usage
+
+```bash
+# Compress with LZMA method
+7z a -m0=LZMA archive.7z file.txt
+
+# Set compression level
+7z a -m0=LZMA -mx=9 archive.7z file.txt
+
+# Set dictionary size (32 MB)
+7z a -m0=LZMA -md=32m archive.7z file.txt
+
+# Set all parameters
+7z a -m0=LZMA -mx=9 -md=64m -mfb=64 archive.7z file.txt
+```
+
+<Tip>
+For new archives, consider using LZMA2 instead of LZMA. LZMA2 provides better multithreading support and handles incompressible data more efficiently.
+</Tip>
+
+## See Also
+
+- [LZMA2 Compression](/compression/lzma2) - Improved version with multithreading
+- [PPMd Compression](/compression/ppmd) - Better for text files
+- [Compression Methods Overview](/compression/overview) - Compare all methods
+- Source files: `C/LzmaEnc.c`, `C/LzmaEnc.h`, `C/LzmaDec.c`, `C/LzmaDec.h`

@@ -1,0 +1,297 @@
+---
+title: License Information
+description: Complete licensing information for 7-Zip source code and components
+---
+
+## Overview
+
+7-Zip is free software distributed primarily under the GNU LGPL license, with specific exceptions for certain components.
+
+7-Zip Copyright (C) 1999-2026 Igor Pavlov.
+
+## License Summary by Component
+
+The 7-Zip source code uses different licenses depending on the specific files:
+
+| Component | License | Notes |
+|-----------|---------|-------|
+| **Most source files** | GNU LGPL v2.1+ | Default license for files without explicit license statements |
+| **RAR decompression** | GNU LGPL + unRAR restriction | `CPP/7zip/Compress/Rar*` files |
+| **LZFSE decoder** | BSD 3-clause | `CPP/7zip/Compress/LzfseDecoder.cpp` |
+| **ZSTD decoder** | BSD 3-clause | `C/ZstdDec.c` |
+| **XXH64 hash** | BSD 2-clause | `C/Xxh64.c` |
+| **Public domain files** | Public domain | When explicitly stated in source file |
+| **LZMA SDK** | Public domain | Written by Igor Pavlov |
+
+<Note>
+If a source file contains no license information, it falls under the GNU LGPL license.
+</Note>
+
+## GNU LGPL License
+
+<Accordion title="GNU Lesser General Public License v2.1">
+
+Most of the 7-Zip source code is licensed under the GNU Lesser General Public License (LGPL) version 2.1 or later.
+
+```text
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, you can get a copy of 
+the GNU Lesser General Public License from http://www.gnu.org/
+```
+
+**Key Points:**
+- Free to use, modify, and redistribute
+- No warranty provided
+- Must comply with LGPL terms for distribution
+- See DOC/copying.txt for full license text
+
+</Accordion>
+
+## unRAR License Restriction
+
+<Warning>
+The RAR decompression code has additional restrictions beyond the GNU LGPL. You must comply with BOTH the GNU LGPL and the unRAR license restriction.
+</Warning>
+
+### Files Affected
+
+All files matching the pattern `CPP/7zip/Compress/Rar*` are subject to the "GNU LGPL with unRAR license restriction."
+
+### unRAR License Terms
+
+<Accordion title="unRAR Restriction Details">
+
+The decompression engine for RAR archives was developed using source code from the unRAR program.
+
+**Copyright:** All copyrights to original unRAR code are owned by Alexander Roshal.
+
+**Key Restrictions:**
+
+1. **Cannot recreate RAR compression algorithm** - The unRAR sources cannot be used to re-create the RAR compression algorithm, which is proprietary.
+
+2. **Distribution requirements** - Distribution of modified unRAR sources (in separate form or as part of other software) is permitted, provided that:
+   - It is clearly stated in the documentation
+   - It is clearly stated in source comments
+   - The code may NOT be used to develop a RAR (WinRAR) compatible archiver
+
+**Permitted Uses:**
+
+```text
+The unRAR sources may be used in any software to handle RAR
+archives without limitations free of charge, but cannot be used
+to re-create the RAR compression algorithm, which is proprietary.
+```
+
+**What You CAN Do:**
+- Use compiled files under GNU LGPL rules (unRAR license has minimal restrictions on compiled files)
+- Link compiled files to LGPL programs
+- Fix bugs in source code and use the compiled fixed version
+- Decompress RAR archives
+- Handle RAR archives in your software
+
+**What You CANNOT Do:**
+- Use unRAR sources to re-create the RAR compression algorithm
+- Develop a RAR (WinRAR) compatible archiver
+- Charge fees for distributing unRAR without written permission from Alexander Roshal
+
+</Accordion>
+
+### Disclaimer
+
+```text
+THE RAR ARCHIVER AND THE UNRAR UTILITY ARE DISTRIBUTED "AS IS".
+NO WARRANTY OF ANY KIND IS EXPRESSED OR IMPLIED. YOU USE AT 
+YOUR OWN RISK. THE AUTHOR WILL NOT BE LIABLE FOR DATA LOSS, 
+DAMAGES, LOSS OF PROFITS OR ANY OTHER KIND OF LOSS WHILE USING
+OR MISUSING THIS SOFTWARE.
+```
+
+## BSD 3-Clause License
+
+<Accordion title="BSD 3-Clause License (LZFSE and ZSTD)">
+
+The following components use the BSD 3-clause License:
+
+### LZFSE Decompression
+
+- **File:** `CPP/7zip/Compress/LzfseDecoder.cpp`
+- **Origin:** Derived from LZFSE compression library by Apple Inc.
+- **Copyright:** 
+  - (c) 2015-2016, Apple Inc. All rights reserved.
+  - (c) 2023-2026 Igor Pavlov.
+
+### ZSTD Decompression
+
+- **File:** `C/ZstdDec.c`
+- **Origin:** Developed using original zstd decoder code as reference
+- **Original Developer:** Facebook Inc.
+- **Copyright:**
+  - (c) Facebook, Inc. All rights reserved.
+  - (c) 2023-2026 Igor Pavlov.
+
+### License Text
+
+```text
+Redistribution and use in source and binary forms, with or without 
+modification, are permitted provided that the following conditions 
+are met:
+
+1. Redistributions of source code must retain the above copyright 
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright 
+   notice, this list of conditions and the following disclaimer in 
+   the documentation and/or other materials provided with the 
+   distribution.
+
+3. Neither the name of the copyright holder nor the names of its 
+   contributors may be used to endorse or promote products derived 
+   from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE 
+COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, 
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN 
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+POSSIBILITY OF SUCH DAMAGE.
+```
+
+</Accordion>
+
+## BSD 2-Clause License
+
+<Accordion title="BSD 2-Clause License (XXH64)">
+
+### XXH64 Hash Function
+
+- **File:** `C/Xxh64.c`
+- **Origin:** Derived from original XXH64 code by Yann Collet
+- **Copyright:**
+  - (c) 2012-2021 Yann Collet.
+  - (c) 2023-2026 Igor Pavlov.
+
+### License Text
+
+```text
+Redistribution and use in source and binary forms, with or without 
+modification, are permitted provided that the following conditions 
+are met:
+
+1. Redistributions of source code must retain the above copyright 
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright 
+   notice, this list of conditions and the following disclaimer in 
+   the documentation and/or other materials provided with the 
+   distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
+FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE 
+COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, 
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN 
+ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+POSSIBILITY OF SUCH DAMAGE.
+```
+
+</Accordion>
+
+## Public Domain Components
+
+### LZMA SDK
+
+The LZMA SDK is written and placed in the public domain by Igor Pavlov.
+
+- **Download:** http://www.7-zip.org/sdk.html
+- **License:** Public domain (no restrictions)
+- **Usage:** Can be freely used in any project
+
+### Other Public Domain Files
+
+Some files in the 7-Zip source are explicitly marked as public domain in their source code headers.
+
+## Compilation Options for License Compliance
+
+### Excluding RAR Code
+
+If the unRAR license restrictions are not compatible with your project's requirements, you can exclude RAR-related code during compilation:
+
+<Accordion title="RAR Exclusion Options">
+
+**Option 1: DISABLE_RAR_COMPRESS=1**
+
+Removes "not fully free" RAR decompression codecs from compilation.
+
+```bash
+make -f makefile.gcc DISABLE_RAR_COMPRESS=1
+```
+
+**Capabilities with this option:**
+- Open RAR archives
+- List files in RAR archives
+- Extract files that are stored without compression
+
+**Limitations:**
+- Cannot decompress compressed files from RAR archives
+
+**Option 2: DISABLE_RAR=1**
+
+Completely removes all RAR-related code from compilation.
+
+```bash
+make -f makefile.gcc DISABLE_RAR=1
+```
+
+**Limitations:**
+- No RAR archive support at all
+
+</Accordion>
+
+## License Compatibility Summary
+
+<Warning>
+When distributing 7-Zip or incorporating it into your project, ensure you comply with ALL applicable licenses:
+
+- **GNU LGPL** for most code
+- **GNU LGPL + unRAR restriction** for RAR decompression
+- **BSD 3-clause** for LZFSE and ZSTD decoders
+- **BSD 2-clause** for XXH64 hash
+- **Public domain** for LZMA SDK
+
+The unRAR restriction is the most restrictive component and may not be compatible with some free-software licenses.
+</Warning>
+
+## Additional Resources
+
+- **License.txt** - Complete license documentation
+- **copying.txt** - Full GNU LGPL license text
+- **unRarLicense.txt** - Complete unRAR license
+- **GNU LGPL:** http://www.gnu.org/
+
+## Contact
+
+For licensing questions or permissions:
+
+Igor Pavlov  
+http://www.7-zip.org

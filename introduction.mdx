@@ -1,0 +1,154 @@
+---
+title: Introduction to 7-Zip
+description: A powerful open-source file archiver with high compression ratios, supporting multiple archive formats including 7z, ZIP, GZIP, BZIP2, and TAR.
+---
+
+# Introduction to 7-Zip
+
+7-Zip is a free, open-source file archiver for Windows, Linux, and macOS. Originally created by Igor Pavlov in 1999, it has become one of the most popular compression utilities worldwide, known for its exceptional compression ratios and broad format support.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with 7-Zip in minutes. Learn basic commands to compress and extract files.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install 7-Zip on Windows, Linux, or macOS using package managers or from source.
+  </Card>
+  <Card title="Command Reference" icon="terminal" href="/commands">
+    Complete reference of all 7-Zip commands and switches for advanced usage.
+  </Card>
+  <Card title="Supported Formats" icon="file-archive" href="/formats">
+    Explore all archive formats that 7-Zip can create and extract.
+  </Card>
+</CardGroup>
+
+## What is 7-Zip?
+
+7-Zip is a file archiver with high compression ratio. The main features of 7-Zip are:
+
+- **High compression ratio** in the new 7z format with LZMA and LZMA2 compression
+- **Multiple compression formats** supported for packing and unpacking
+- **Strong AES-256 encryption** in 7z and ZIP formats
+- **Self-extracting capability** for 7z format
+- **Integration with Windows Shell** (Windows only)
+- **Powerful command line interface** for automation
+- **Cross-platform support** for Windows, Linux, and macOS
+- **Free and open source** under GNU LGPL license
+
+## Key Features
+
+### Superior Compression
+
+7-Zip uses the LZMA and LZMA2 compression algorithms in its native 7z format, providing compression ratios 30-70% better than traditional ZIP format. The compression level can be adjusted from fastest (-mx1) to ultra (-mx9) to balance speed and size.
+
+### Format Support
+
+7-Zip supports a wide range of archive formats:
+
+**Packing / Unpacking:**
+- 7z
+- XZ
+- BZIP2 (BZ2, TB2, TBZ, TBZ2)
+- GZIP (GZ, TGZ)
+- TAR
+- ZIP (JAR)
+- WIM
+
+**Unpacking Only:**
+- AR, ARJ, CAB, CHM, CPIO, CramFS, DMG, EXT, FAT, GPT, HFS, IHEX, ISO, LZH, LZMA, MBR, MSI, NSIS, NTFS, QCOW2, RAR, RPM, SquashFS, UDF, UEFI, VDI, VHD, VMDK, WIM, XAR, Z
+
+### Strong Encryption
+
+The 7z format uses AES-256 encryption with SHA-256 hashing for secure archive protection. ZIP format archives can also be encrypted using AES-256.
+
+### Compression Methods
+
+7-Zip supports multiple compression methods identified by unique IDs:
+
+- **LZMA** - Primary compression algorithm for 7z format
+- **LZMA2** - Improved multithreaded version of LZMA
+- **PPMd** - High compression ratio for text files
+- **BZIP2** - Good compression with moderate speed
+- **Deflate/Deflate64** - ZIP-compatible compression
+- **Delta** - Preprocessing filter for better compression
+- **BCJ** - Branch/Call/Jump filters for x86, ARM, ARM64, IA64, PPC, SPARC, and RISC-V
+
+### Command Line Interface
+
+7-Zip provides a powerful command-line interface with multiple binaries:
+
+- **7z** - Full-featured command-line version with all format support
+- **7zz** - Standalone console version supporting all formats (Linux/macOS)
+- **7za** - Standalone version supporting 7z/xz/cab/zip/gzip/bzip2/tar
+- **7zr** - Reduced version supporting only 7z format
+
+## System Requirements
+
+<Info>
+7-Zip works on Windows, Linux, and macOS. While originally designed for Windows, the latest versions include native support for Unix-like systems.
+</Info>
+
+**Operating Systems:**
+- Windows (all modern versions)
+- Linux (x86, x86-64, ARM, ARM64)
+- macOS (x86-64, ARM64/Apple Silicon)
+
+**Architectures:**
+- x86 (32-bit)
+- x86-64 / AMD64 (64-bit)
+- ARM (32-bit)
+- ARM64 / AArch64 (64-bit)
+- IA64 (Itanium)
+
+## License
+
+7-Zip is free software distributed under the **GNU LGPL** license. Some components have specific licenses:
+
+- Most of 7-Zip source code: **GNU LGPL v2.1+**
+- unRAR code: **GNU LGPL with unRAR license restriction** (can extract but cannot recreate RAR compression)
+- Some components: **BSD 3-clause License** (LZFSE decoder, Zstd decoder)
+- LZMA SDK: **Public Domain**
+
+<Tip>
+The LGPL license allows you to use 7-Zip in both free and commercial applications. You can link to the libraries without releasing your source code.
+</Tip>
+
+## Architecture Overview
+
+7-Zip consists of COM modules (DLL files on Windows, shared libraries on Unix) that can be used independently:
+
+- **7z.dll** - All format support
+- **7za.dll** - Native 7z format support
+- **Codec modules** - Compression and encryption algorithms
+- **Format handlers** - Archive format parsers
+
+## Performance
+
+7-Zip is optimized for modern multi-core processors:
+
+- **Multi-threading support** - Utilize all CPU cores with `-mmt` parameter
+- **Hardware acceleration** - Uses CPU-specific optimizations (AES-NI, SHA extensions, CRC32)
+- **Assembler optimizations** - Hand-optimized assembly code for critical algorithms on x86-64 and ARM64
+- **Large pages support** - Improved performance on systems with large memory
+
+## Use Cases
+
+7-Zip is ideal for:
+
+- **File backup and archiving** - Create compressed backups with strong encryption
+- **Software distribution** - Package software with self-extracting archives
+- **Data transfer** - Reduce file sizes for faster uploads and downloads
+- **Disk image handling** - Work with ISO, WIM, and other disk image formats
+- **Automation** - Script batch compression and extraction operations
+- **Archive format conversion** - Convert between different archive formats
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Install 7-Zip" icon="download" href="/installation">
+    Follow the installation guide for your operating system
+  </Card>
+  <Card title="Quick Start Tutorial" icon="play" href="/quickstart">
+    Learn the essential commands and create your first archive
+  </Card>
+</CardGroup>

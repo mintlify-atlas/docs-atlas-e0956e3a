@@ -1,0 +1,407 @@
+---
+title: 7z format specification
+description: Complete technical specification of the 7z archive format
+---
+
+The 7z format is a modern archive format that provides high compression ratios and advanced features.
+
+## Format Overview
+
+From `DOC/7zFormat.txt`:
+
+> 7z archive can contain files compressed with any method.
+> The format supports:
+> - Solid compression
+> - Multiple compression methods
+> - Strong AES-256 encryption
+> - Large file support (16 EB limit)
+> - Unicode filenames
+> - File attributes and timestamps
+
+## Archive Structure
+
+A 7z archive consists of:
+
+```
+[SignatureHeader]
+[PackedStreams]        // Compressed data
+[PackedHeaderStreams]  // Compressed headers (optional)
+[Header]               // Archive metadata
+```
+
+### Signature Header
+
+From `7z.h` (lines 11-14):
+
+```c
+#define k7zStartHeaderSize 0x20  // 32 bytes
+#define k7zSignatureSize 6
+
+const Byte k7zSignature[k7zSignatureSize] = {'7', 'z', 0xBC, 0xAF, 0x27, 0x1C};
+```
+
+**Structure** (32 bytes):
+```
+Offset  Size  Description
+------  ----  -----------
+0       6     Signature: 37 7A BC AF 27 1C
+6       1     ArchiveVersion (Major)
+7       1     ArchiveVersion (Minor)
+8       4     StartHeaderCRC
+12      8     NextHeaderOffset
+20      8     NextHeaderSize
+28      4     NextHeaderCRC
+```
+
+### Header Types
+
+From `DOC/7zFormat.txt` (lines 100-150):
+
+```
+Header Types:
+  kEnd                = 0x00
+  kHeader             = 0x01
+  kArchiveProperties  = 0x02
+  kAdditionalStreamsInfo = 0x03
+  kMainStreamsInfo    = 0x04
+  kFilesInfo          = 0x05
+  kPackInfo           = 0x06
+  kUnpackInfo         = 0x07
+  kSubStreamsInfo     = 0x08
+  kSize               = 0x09
+  kCRC                = 0x0A
+  kFolder             = 0x0B
+  kCodersUnpackSize   = 0x0C
+  kNumUnpackStream    = 0x0D
+  kEmptyStream        = 0x0E
+  kEmptyFile          = 0x0F
+  kAnti               = 0x10
+  kName               = 0x11
+  kCTime              = 0x12
+  kATime              = 0x13
+  kMTime              = 0x14
+  kWinAttrib          = 0x15
+  kComment            = 0x16
+  kEncodedHeader      = 0x17
+  kStartPos           = 0x18
+  kDummy              = 0x19
+```
+
+## Compression Methods
+
+From `DOC/Methods.txt`, method IDs:
+
+### Common Methods
+
+| Method | ID | Description |
+|--------|-----|-------------|
+| Copy | `00` | No compression |
+| LZMA | `03 01 01` | LZMA algorithm |
+| LZMA2 | `21` | LZMA2 (default) |
+| PPMd | `03 04 01` | Prediction by partial matching |
+| BZip2 | `04 02 02` | Burrows-Wheeler transform |
+| Deflate | `04 01 08` | Deflate (ZIP) |
+
+### Filters
+
+| Filter | ID | Description |
+|--------|-----|-------------|
+| BCJ | `04` | x86 executable filter |
+| BCJ2 | `03 03 01 1B` | x86 advanced filter |
+| ARM | `07` | ARM executable filter |
+| ARM64 | `0A` | ARM64 filter |
+| Delta | `03` | Delta filter |
+
+## Folder Structure
+
+From `7z.h` (lines 42-51):
+
+```c
+typedef struct
+{
+  UInt32 NumCoders;     // Number of compression methods
+  UInt32 NumBonds;      // Number of bonds between coders
+  UInt32 NumPackStreams;
+  UInt32 UnpackStream;
+  UInt32 PackStreams[SZ_NUM_PACK_STREAMS_IN_FOLDER_MAX];
+  CSzBond Bonds[SZ_NUM_BONDS_IN_FOLDER_MAX];
+  CSzCoderInfo Coders[SZ_NUM_CODERS_IN_FOLDER_MAX];
+} CSzFolder;
+```
+
+**A folder** represents a compression unit:
+- Can contain multiple files (solid compression)
+- Defines the compression method chain
+- Stores coder properties
+
+## Coder Information
+
+From `7z.h` (lines 24-30):
+
+```c
+typedef struct
+{
+  size_t PropsOffset;   // Offset to properties in CodersData
+  UInt32 MethodID;      // Compression method ID
+  Byte NumStreams;      // Number of input/output streams
+  Byte PropsSize;       // Size of properties
+} CSzCoderInfo;
+```
+
+## File Information
+
+### File Item
+
+From `7z.h` (lines 56-66):
+
+```c
+typedef struct
+{
+  CNtfsFileTime MTime;  // Modification time
+  UInt64 Size;          // Uncompressed size
+  UInt32 Crc;           // CRC32
+  UInt32 Attrib;        // File attributes
+  Byte HasStream;       // Has data stream
+  Byte IsDir;           // Is directory
+  Byte IsAnti;          // Anti-item (for updates)
+  Byte CrcDefined;      // CRC is valid
+  Byte MTimeDefined;    // MTime is valid
+  Byte AttribDefined;   // Attrib is valid
+} CSzFileItem;
+```
+
+### File Attributes
+
+Windows attributes:
+```c
+#define FILE_ATTRIBUTE_READONLY  0x0001
+#define FILE_ATTRIBUTE_HIDDEN    0x0002
+#define FILE_ATTRIBUTE_SYSTEM    0x0004
+#define FILE_ATTRIBUTE_DIRECTORY 0x0010
+#define FILE_ATTRIBUTE_ARCHIVE   0x0020
+```
+
+Unix attributes (stored in high 16 bits):
+```c
+UInt32 unixMode = (attrib >> 16) & 0xFFFF;
+```
+
+## Encryption
+
+### 7zAES
+
+**Method ID**: `06 F1 07 01`
+
+From `DOC/Methods.txt` (lines 172-173):
+```
+07 - [7z]
+   01 - 7zAES (AES-256 + SHA-256)
+```
+
+**Properties structure**:
+```
+Byte[1] - Version (0x00)
+Byte[1] - Number of cycles (power of 2)
+Byte[1] - Salt size (0-16)
+Byte[*] - Salt data
+Byte[*] - Password verification data
+Byte[16] - IV
+```
+
+**Key derivation**:
+1. Concatenate: Password + Salt
+2. Hash with SHA-256, repeated 2^NumCycles times
+3. Result: 32-byte AES key
+
+### Header Encryption
+
+When `-mhe=on` is used:
+1. Archive headers are compressed
+2. Compressed headers are encrypted with AES-256
+3. Only signature header remains unencrypted
+4. Password required to list files
+
+## Archive Database
+
+From `7z.h` (lines 79-96):
+
+```c
+typedef struct
+{
+  UInt32 NumPackStreams;  // Number of packed streams
+  UInt32 NumFolders;      // Number of folders
+
+  UInt64 *PackPositions;  // Positions of packed streams
+  CSzBitUi32s FolderCRCs; // CRCs for folders
+
+  size_t *FoCodersOffsets;        // Offsets to coder data
+  UInt32 *FoStartPackStreamIndex; // Start pack stream for folder
+  UInt32 *FoToCoderUnpackSizes;   // Unpack sizes
+  Byte *FoToMainUnpackSizeIndex;  // Main unpack size index
+  UInt64 *CoderUnpackSizes;       // Unpack sizes for all coders
+
+  Byte *CodersData;       // Coder properties data
+
+  UInt64 RangeLimit;
+} CSzAr;
+```
+
+## Format Limits
+
+| Property | Limit | Note |
+|----------|-------|------|
+| File size | 16 EB | 2^64 bytes |
+| Archive size | 16 EB | 2^64 bytes |
+| Files per archive | 2^32 | 4 billion |
+| Filename length | 2^16 chars | 64K Unicode chars |
+| Solid block size | Unlimited | Memory constrained |
+| Dictionary size | 1.5 GB | LZMA2 limit |
+
+## Reading 7z Archives
+
+### Opening Archive
+
+From `DOC/7zC.txt` (lines 93-107):
+
+```c
+// 1. Declare variables
+CLookToRead2 lookStream;
+CSzArEx db;
+ISzAlloc allocImp;
+ISzAlloc allocTempImp;
+
+// 2. Initialize CRC table
+CrcGenerateTable();
+
+// 3. Initialize database
+SzArEx_Init(&db);
+
+// 4. Open archive
+SRes res = SzArEx_Open(&db, &lookStream.vt, &allocImp, &allocTempImp);
+
+if (res == SZ_OK) {
+    // Archive opened successfully
+    // db.NumFiles contains file count
+}
+```
+
+### Extracting Files
+
+```c
+// Extract file by index
+UInt32 fileIndex = 0;
+UInt32 blockIndex = 0xFFFFFFFF;
+Byte *outBuffer = NULL;
+size_t outBufferSize = 0;
+
+for (UInt32 i = 0; i < db.NumFiles; i++) {
+    size_t offset = 0;
+    size_t outSizeProcessed = 0;
+    
+    SRes res = SzArEx_Extract(
+        &db, &lookStream.vt, i,
+        &blockIndex, &outBuffer, &outBufferSize,
+        &offset, &outSizeProcessed,
+        &allocImp, &allocTempImp
+    );
+    
+    if (res == SZ_OK) {
+        // File data is at: outBuffer + offset
+        // Size: outSizeProcessed
+    }
+}
+
+// Free output buffer
+allocImp.Free(&allocImp, outBuffer);
+```
+
+## Creating 7z Archives
+
+### Archive Handler
+
+From `CPP/7zip/Archive/7z/7zHandler.h`:
+
+```cpp
+class CHandler : public IInArchive, public IOutArchive
+{
+public:
+    // IInArchive
+    STDMETHOD(Open)(IInStream *stream, ...);
+    STDMETHOD(Extract)(const UInt32 *indices, UInt32 numItems, ...);
+    
+    // IOutArchive
+    STDMETHOD(UpdateItems)(ISequentialOutStream *outStream, ...);
+};
+```
+
+### Update Operations
+
+```cpp
+// Update modes
+enum EUpdateMode
+{
+    k_UpdateMode_Add,       // Add new file
+    k_UpdateMode_Update,    // Update existing file
+    k_UpdateMode_Delete,    // Delete file
+    k_UpdateMode_Rename     // Rename file
+};
+```
+
+## Format Advantages
+
+<CardGroup cols={2}>
+  <Card title="High Compression" icon="compress">
+    LZMA2 provides excellent compression ratios
+  </Card>
+  <Card title="Solid Compression" icon="box">
+    Compress similar files together for better ratios
+  </Card>
+  <Card title="Strong Encryption" icon="lock">
+    AES-256 encryption with SHA-256 key derivation
+  </Card>
+  <Card title="Large File Support" icon="file">
+    Support for files and archives up to 16 EB
+  </Card>
+  <Card title="Unicode Names" icon="language">
+    Full Unicode support for filenames
+  </Card>
+  <Card title="Extensible" icon="puzzle-piece">
+    Support for custom compression methods
+  </Card>
+</CardGroup>
+
+## Format Comparison
+
+| Feature | 7z | ZIP | TAR.GZ | RAR |
+|---------|-----|-----|--------|-----|
+| Compression | Excellent | Good | Good | Excellent |
+| Speed | Medium | Fast | Fast | Medium |
+| Solid | Yes | No | No | Yes |
+| Encryption | AES-256 | AES-256 | None | AES-256 |
+| Header encryption | Yes | No | No | Yes |
+| Multi-threading | Yes | Partial | No | Yes |
+| Open source | Yes | Yes | Yes | No |
+
+## Implementation Files
+
+Key source files:
+
+- **Format handler**: `CPP/7zip/Archive/7z/7zHandler.cpp`
+- **Archive reader**: `C/7zArcIn.c`
+- **Decoder**: `C/7zDec.c`
+- **Header structures**: `C/7z.h`
+- **Format constants**: `CPP/7zip/Archive/7z/7zHeader.h`
+
+## Format Documentation
+
+Complete format specification:
+- `DOC/7zFormat.txt` - Full format specification
+- `DOC/Methods.txt` - Compression method IDs
+- `DOC/7zC.txt` - ANSI-C decoder documentation
+
+## See Also
+
+- [SDK Overview](/dev/sdk-overview)
+- [LZMA SDK](/dev/lzma-sdk)
+- [7z Format](/formats/7z)
+- [Compression Methods](/compression/overview)

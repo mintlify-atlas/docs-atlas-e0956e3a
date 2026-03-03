@@ -1,0 +1,481 @@
+---
+title: WIM Format
+description: Windows Imaging Format specification and usage guide
+---
+
+WIM (Windows Imaging Format) is Microsoft's file-based disk image format used for deploying Windows operating systems and capturing system images.
+
+## Format Overview
+
+WIM provides:
+
+- **File-based imaging** - Unlike sector-based formats, stores files individually
+- **Single-instance storage** - Identical files stored once across images
+- **Multiple images** - One WIM can contain multiple OS images
+- **Compression** - XPRESS, LZX, and LZMA compression
+- **Solid compression** - ESD variant with solid LZMS compression
+- **Hardware independence** - Not tied to specific hardware
+- **Non-destructive mounting** - Can mount images without extraction
+
+<Note>
+WIM is primarily used for Windows deployment (install.wim, boot.wim) and system backup/restore operations.
+</Note>
+
+## Format Structure
+
+From `source/CPP/7zip/Archive/Wim/WimIn.h:23-33`, WIM has evolved through several versions:
+
+### Version History
+
+```cpp
+/*
+WIM versions:
+hexVer : headerSize : ver
+10900 : 60 : 1.09 : Longhorn.4029-4039 (2003)
+10A00 : 60 : 1.10 : Longhorn.4083 (2004)
+10C00 : 74 : 1.12 : Longhorn.4093 - VistaBeta1 (2005) - Multi-Part, SHA1
+10D00 : D0 : 1.13 : VistaBeta2 - Win10 - NumImages, BootIndex, IntegrityResource
+00E00 : D0 : 0.14 : LZMS, solid, esd, dism
+*/
+```
+
+### File Structure
+
+```
++----------------------------+
+| WIM Header (208 bytes)     |
++----------------------------+
+| Resource Table             |
+| (Compressed File Data)     |
++----------------------------+
+| Image Metadata             |
+| (Directory/File Info)      |
++----------------------------+
+| XML Data                   |
+| (Image Descriptions)       |
++----------------------------+
+| Integrity Table (optional) |
++----------------------------+
+```
+
+## Directory Entry Structure
+
+From `WimIn.h:35-131`, WIM stores detailed file metadata:
+
+### Modern Directory Entry (WIM 1.13+)
+
+```cpp
+const unsigned kDirRecordSize = 102;
+
+struct DIRENTRY {
+  UInt64  Len;           // Entry length
+  UInt32  Attrib;        // File attributes
+  UInt32  SecurityId;    // Security descriptor ID
+  
+  UInt64  SubdirOffset;  // Subdirectory offset (0 for files)
+  
+  UInt64  unused1;       // Reserved
+  UInt64  unused2;       // Reserved
+  
+  UInt64  CTime;         // Creation time
+  UInt64  ATime;         // Access time
+  UInt64  MTime;         // Modification time
+  
+  Byte    Sha1[20];      // SHA-1 hash of file data
+  
+  UInt32  ReparseTag;    // Reparse point tag
+  UInt32  ReparseFlags;  // Reparse flags
+  
+  UInt16  Streams;       // Number of streams
+  UInt16  ShortNameLen;  // Short name length
+  UInt16  FileNameLen;   // File name length
+  
+  UInt16  Name[];        // File name (UTF-16)
+  UInt16  ShortName[];   // Short name (UTF-16)
+};
+```
+
+### Old Directory Entry (WIM 1.10)
+
+```cpp
+const unsigned kDirRecordSizeOld = 62;
+```
+
+Older versions used a smaller 62-byte structure without SHA-1 hashes.
+
+## Resource Flags
+
+From `WimIn.h:134-141`:
+
+```cpp
+namespace NResourceFlags {
+  const Byte kMetadata = 1 << 1;    // Metadata resource
+  const Byte kCompressed = 1 << 2;  // Resource is compressed
+  const Byte kSolid = 1 << 4;       // Solid compression (ESD)
+}
+```
+
+<Info>
+Solid compression (kSolid flag) is used in ESD (Electronic Software Distribution) files for maximum compression, introduced in Windows 8.1.
+</Info>
+
+## Compression Methods
+
+WIM supports multiple compression methods:
+
+### Standard Compression
+
+1. **None (Store)** - No compression
+   - Fast creation and extraction
+   - Largest file size
+
+2. **XPRESS** - Fast compression
+   - LZ77-based algorithm
+   - Good speed, moderate compression
+   - Default for many WIM images
+
+3. **LZX** - Better compression
+   - LZ77 + Huffman coding
+   - Better ratio than XPRESS
+   - Used in install.wim
+
+4. **LZMA** - Best compression (WIM 1.13+)
+   - LZMA algorithm
+   - Excellent compression ratio
+   - Slower than XPRESS/LZX
+
+### Solid Compression (ESD)
+
+5. **LZMS** - Solid compression (WIM 0.14+)
+   - Used in .esd files
+   - Maximum compression ratio
+   - Significantly slower
+   - Requires Windows 8.1+ or DISM
+
+From handler includes (`WimIn.h:14-16`):
+
+```cpp
+#include "../../Compress/LzmsDecoder.h"
+#include "../../Compress/LzxDecoder.h"
+```
+
+## Usage Examples
+
+### List WIM Contents
+
+```bash
+7z l install.wim
+```
+
+Shows all images and their contents.
+
+### Extract WIM Image
+
+```bash
+7z x install.wim
+```
+
+Extracts the default or first image.
+
+### Extract Specific Image
+
+```bash
+7z x install.wim -i!1\*  # Extract image 1
+7z x install.wim -i!2\*  # Extract image 2
+```
+
+### View WIM Information
+
+```bash
+7z l -slt install.wim
+```
+
+Shows detailed information including:
+- Number of images
+- Compression method
+- Image names and descriptions
+- File counts and sizes
+
+### Create WIM Archive
+
+```bash
+7z a -twim -mx=1 image.wim C:\Source\  # XPRESS compression
+7z a -twim -mx=5 image.wim C:\Source\  # LZX compression
+```
+
+<Warning>
+7-Zip supports extracting WIM files but has limited WIM creation capabilities compared to Microsoft DISM tool. For advanced WIM operations, use DISM or ImageX.
+</Warning>
+
+## Handler Implementation
+
+From `source/CPP/7zip/Archive/Wim/WimHandler.h:15-23`:
+
+```cpp
+const Int32 kNumImagesMaxUpdate = 1 << 10;  // 1024 images max
+
+Z7_CLASS_IMP_CHandler_IInArchive_5(
+  IArchiveGetRawProps,
+  IArchiveGetRootProps,
+  IArchiveKeepModeForNextOpen,
+  ISetProperties,
+  IOutArchive
+)
+```
+
+### Handler State
+
+```cpp
+CDatabase _db;
+UInt32 _version;
+UInt32 _bootIndex;
+
+CObjectVector<CVolume> _volumes;
+CObjectVector<CWimXml> _xmls;
+
+bool _isOldVersion;
+bool _xmlInComments;
+bool _xmlError;
+bool _isArc;
+bool _unsupported;
+```
+
+## Multiple Images
+
+WIM files can contain multiple OS images:
+
+```bash
+# View all images
+7z l install.wim
+
+Output:
+  Image 1: Windows 10 Home
+  Image 2: Windows 10 Pro  
+  Image 3: Windows 10 Enterprise
+```
+
+Each image shares common files (single-instance storage).
+
+## Single-Instance Storage
+
+WIM uses SHA-1 hashing to detect duplicate files:
+
+- Files with identical SHA-1 hash stored only once
+- Dramatically reduces size for multiple similar images
+- Example: 5 Windows editions sharing system files
+
+```
+Normal storage:  5 × 4 GB = 20 GB
+WIM storage:     ~6-8 GB (60-70% savings)
+```
+
+## Split WIM Files
+
+Large WIM files can be split into parts:
+
+```bash
+# Split WIM (using DISM or ImageX)
+dism /Split-Image /ImageFile:install.wim /SWMFile:install.swm /FileSize:4000
+```
+
+Creates:
+- `install.swm`
+- `install2.swm`
+- `install3.swm`
+
+<Note>
+7-Zip can extract from split WIM (SWM) files by opening the first file.
+</Note>
+
+## ESD Format
+
+ESD (Electronic Software Distribution) is a WIM variant with solid LZMS compression:
+
+```bash
+# Extract ESD file
+7z x install.esd
+```
+
+ESD characteristics:
+- Much smaller than WIM (~30-40% smaller)
+- Slower extraction
+- Used for Windows 10+ downloads
+- Requires Windows 8.1+ DISM or 7-Zip for extraction
+
+## Advanced Features
+
+### Boot Configuration
+
+From `WimHandler.h:26`:
+
+```cpp
+UInt32 _bootIndex;  // Bootable image index
+```
+
+WIM can specify which image is bootable (boot.wim).
+
+### Security Descriptors
+
+```cpp
+UInt32  SecurityId;  // In DIRENTRY structure
+```
+
+WIM preserves Windows NTFS security descriptors.
+
+### Alternate Data Streams
+
+```cpp
+struct ALT_STREAM {
+  UInt64  Len;
+  UInt64  Unused;
+  Byte    Sha1[20];
+  UInt16  FileNameLen;
+  UInt16  FileName[];
+};
+```
+
+WIM supports NTFS alternate data streams.
+
+### Reparse Points
+
+```cpp
+UInt32  ReparseTag;    // Symlink, junction, etc.
+UInt32  ReparseFlags;
+```
+
+Supports symbolic links, junctions, and mount points.
+
+## Comparison with Other Formats
+
+### WIM vs ISO
+
+| Feature | WIM | ISO |
+|---------|-----|-----|
+| Type | File-based | Sector-based |
+| Compression | Yes (multiple methods) | No |
+| Modification | Easy | Difficult |
+| Mounting | Non-destructive | Read-only |
+| Use case | OS deployment | Optical media |
+
+### WIM vs VHD/VHDX
+
+| Feature | WIM | VHD/VHDX |
+|---------|-----|----------|
+| Format | File-based image | Virtual disk |
+| Bootable | Yes (via WinPE) | Yes (native) |
+| Modification | Non-destructive | Read/write |
+| Size | Smaller (compressed) | Larger |
+| Use case | Deployment | Virtualization |
+
+## Use Cases
+
+### Windows Installation
+
+```bash
+# Extract Windows installation
+7z x install.wim -i!4\*  # Extract Windows 10 Pro image
+```
+
+### System Backup
+
+```bash
+# Create system image (use DISM)
+dism /Capture-Image /ImageFile:backup.wim /CaptureDir:C:\ /Name:"System Backup"
+```
+
+### Extract Drivers
+
+```bash
+# Extract driver files from install.wim
+7z x install.wim -i!1\Windows\System32\drivers\*.sys
+```
+
+### View Windows Edition
+
+```bash
+# List all Windows editions in install.wim
+7z l install.wim
+```
+
+## Implementation Files
+
+WIM handler implementation:
+
+```
+source/CPP/7zip/Archive/Wim/
+├── WimHandler.cpp      # Archive handling
+├── WimHandler.h        # Handler interface
+├── WimHandlerOut.cpp   # Archive creation
+├── WimIn.cpp          # WIM reading
+├── WimIn.h            # WIM structures
+└── WimRegister.cpp    # Format registration
+```
+
+## Limitations
+
+<Warning>
+WIM format limitations:
+- Maximum image size: 4 GB per file (use split WIM for larger)
+- No native encryption (use BitLocker on mounted images)
+- Requires Windows or specialized tools
+- 7-Zip extraction only (limited creation)
+- Solid WIM (ESD) slower extraction
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="For Deployment" icon="rocket">
+    Use LZX compression for balanced speed and size
+  </Card>
+  <Card title="For Distribution" icon="download">
+    Use LZMS (ESD) for minimum download size
+  </Card>
+  <Card title="For Backup" icon="floppy-disk">
+    Use XPRESS for faster backup/restore
+  </Card>
+  <Card title="For Multiple Editions" icon="layer-group">
+    Leverage single-instance storage in one WIM
+  </Card>
+</CardGroup>
+
+## Tools
+
+### Microsoft DISM
+
+```bash
+# View WIM info
+dism /Get-WimInfo /WimFile:install.wim
+
+# Mount WIM
+dism /Mount-Wim /WimFile:install.wim /Index:1 /MountDir:C:\Mount
+
+# Unmount WIM
+dism /Unmount-Wim /MountDir:C:\Mount /Commit
+```
+
+### 7-Zip
+
+```bash
+# Extract WIM
+7z x install.wim
+
+# List images
+7z l install.wim
+```
+
+### ImageX (Legacy)
+
+```bash
+# Capture image
+imagex /capture C:\ D:\backup.wim "System Backup"
+
+# Apply image
+imagex /apply D:\backup.wim 1 C:\
+```
+
+## See Also
+
+- [Archive Formats Overview](/formats/overview)
+- [ISO Format](/formats/iso)
+- [7z Format](/formats/7z)

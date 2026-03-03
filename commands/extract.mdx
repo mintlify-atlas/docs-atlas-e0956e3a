@@ -1,0 +1,348 @@
+---
+title: Extract Commands (x, e)
+description: Extract files from archives with or without directory structure
+---
+
+The extract commands extract files from archives. 7-Zip provides two extraction commands:
+- **x** - eXtract files with full paths
+- **e** - Extract files without directory structure
+
+## Syntax
+
+```bash
+7z x [<switches>...] <archive_name> [<file_names>...] [@listfile]
+7z e [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Difference Between x and e
+
+<CardGroup cols={2}>
+  <Card title="x (eXtract with paths)" icon="folder-tree">
+    Extracts files with full directory structure preserved.
+    
+    **Example:** `file/data.txt` → `output/file/data.txt`
+  </Card>
+  <Card title="e (Extract)" icon="file">
+    Extracts all files to the same directory, ignoring paths.
+    
+    **Example:** `file/data.txt` → `output/data.txt`
+  </Card>
+</CardGroup>
+
+## Common Options
+
+<ParamField path="archive_name" type="string" required>
+  Name of the archive to extract. 7-Zip auto-detects archive type.
+</ParamField>
+
+<ParamField path="file_names" type="string">
+  Specific files or patterns to extract. If omitted, extracts all files.
+  
+  **Example:** `*.txt` or `documents/report.pdf`
+</ParamField>
+
+<ParamField path="-o{Directory}" type="string">
+  Set output directory. **No space** between `-o` and the path.
+  
+  **Example:** `-o/home/user/output` or `-oC:\Output`
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Provide password for encrypted archives. Omit password to be prompted.
+  
+  **Example:** `-pMyPassword` or `-p` (prompts)
+</ParamField>
+
+<ParamField path="-y" type="flag">
+  Assume Yes on all queries (overwrite without prompting).
+</ParamField>
+
+<ParamField path="-ao{a|s|t|u}" type="string">
+  Set overwrite mode:
+  - `a` - Overwrite all existing files
+  - `s` - Skip existing files
+  - `t` - Auto-rename extracting file
+  - `u` - Auto-rename existing file
+  
+  **Example:** `-aoa` (overwrite all)
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Set archive type (usually auto-detected).
+  
+  **Example:** `-t7z` or `-tzip`
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories (enabled by default for archives).
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files by pattern.
+  
+  **Example:** `-x!*.tmp -x!*.bak`
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include only files matching pattern.
+  
+  **Example:** `-i!*.txt`
+</ParamField>
+
+<ParamField path="-so" type="flag">
+  Write data to stdout (for piping).
+</ParamField>
+
+<ParamField path="-si" type="flag">
+  Read archive from stdin.
+</ParamField>
+
+<ParamField path="-spe" type="flag">
+  Eliminate duplication of root folder for extract command.
+</ParamField>
+
+<ParamField path="-spf" type="flag">
+  Use fully qualified file paths (include drive letter on Windows).
+</ParamField>
+
+<ParamField path="-snh" type="flag">
+  Store hard links as links (extract as links, not copies).
+</ParamField>
+
+<ParamField path="-snl" type="flag">
+  Store symbolic links as links (extract as links, not file contents).
+</ParamField>
+
+<ParamField path="-sni" type="flag">
+  Store NT security information (Windows).
+</ParamField>
+
+<ParamField path="-sns" type="flag">
+  Store NTFS alternate streams (Windows).
+</ParamField>
+
+## Examples
+
+### Extract archive with full paths
+```bash
+7z x archive.7z
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Scanning the drive for archives:
+1 file, 23456 bytes (23 KiB)
+
+Extracting archive: archive.7z
+--
+Path = archive.7z
+Type = 7z
+Physical Size = 23456
+Headers Size = 234
+Method = LZMA2:24
+Solid = -
+Blocks = 1
+
+Everything is Ok
+
+Folders: 3
+Files: 12
+Size:       45678
+Compressed: 23456
+```
+
+### Extract to specific directory
+```bash
+7z x archive.7z -o/home/user/output
+```
+
+### Extract without directory structure
+```bash
+7z e archive.7z
+```
+All files extracted to current directory, paths discarded.
+
+### Extract password-protected archive
+```bash
+7z x -p archive.7z
+```
+**Prompts:**
+```
+Enter password (will not be echoed):
+```
+
+Or provide password directly:
+```bash
+7z x -pMyPassword archive.7z
+```
+
+### Extract specific files
+```bash
+7z x archive.7z readme.txt license.txt
+```
+
+### Extract files by pattern
+```bash
+7z x archive.7z *.txt -r
+```
+
+### Extract and overwrite without prompting
+```bash
+7z x archive.7z -y
+```
+
+### Extract and skip existing files
+```bash
+7z x archive.7z -aos
+```
+
+### Extract and auto-rename new files
+```bash
+7z x archive.7z -aot
+```
+**Creates:** `file.txt`, `file_1.txt`, `file_2.txt`, etc.
+
+### Extract excluding certain files
+```bash
+7z x archive.7z -x!*.tmp -x!*.bak
+```
+
+### Extract only specific file types
+```bash
+7z x archive.7z -i!*.jpg -i!*.png
+```
+
+### Extract to stdout (piping)
+```bash
+7z x archive.7z -so > output.txt
+```
+
+### Extract multi-volume archive
+```bash
+7z x archive.7z.001
+```
+Automatically finds and uses all volumes (.001, .002, .003, etc.)
+
+### Extract nested archives
+```bash
+7z x archive.tar.gz -so | tar -x
+```
+
+### Test before extracting
+```bash
+7z t archive.7z && 7z x archive.7z
+```
+
+## Advanced Examples
+
+### Extract with progress to stderr
+```bash
+7z x archive.7z -bsp1 2>&1 | grep -v "^$"
+```
+
+### Extract preserving timestamps
+```bash
+7z x archive.7z
+```
+(Timestamps preserved by default)
+
+### Extract case-sensitive (Linux)
+```bash
+7z x archive.7z -ssc
+```
+
+### Extract from stdin
+```bash
+cat archive.7z | 7z x -si
+```
+
+### Extract multiple archives
+```bash
+for f in *.7z; do 7z x "$f" -o"${f%.7z}"; done
+```
+
+### Extract with full paths including drive (Windows)
+```bash
+7z x archive.7z -spf
+```
+
+## Overwrite Modes
+
+The `-ao` switch controls behavior when extracted files already exist:
+
+| Mode | Switch | Behavior |
+|------|--------|----------|
+| Overwrite All | `-aoa` | Replace all existing files |
+| Skip | `-aos` | Keep existing files, skip extraction |
+| Auto-rename (extracting) | `-aot` | Rename newly extracted files |
+| Auto-rename (existing) | `-aou` | Rename existing files |
+
+### Interactive Prompt (default)
+
+Without `-ao` or `-y`, 7-Zip prompts for each file:
+```
+file.txt already exists. Overwrite? (Y)es / (N)o / (A)lways / (S)kip all / A(u)to rename all / (Q)uit?
+```
+
+## Working with Different Archive Types
+
+### ZIP archives
+```bash
+7z x archive.zip
+```
+
+### TAR.GZ archives
+```bash
+7z x archive.tar.gz -so | 7z x -si -ttar
+```
+Or extract in one step:
+```bash
+7z x archive.tar.gz && 7z x archive.tar
+```
+
+### RAR archives
+```bash
+7z x archive.rar
+```
+
+### ISO images
+```bash
+7z x image.iso -o/mnt/iso
+```
+
+### Split archives
+```bash
+7z x archive.zip.001
+```
+
+<Note>
+  The `x` command is recommended for most use cases as it preserves the directory structure. Use `e` only when you specifically want all files in one directory.
+</Note>
+
+<Warning>
+  Using `e` (extract without paths) can cause file name conflicts if the archive contains files with the same name in different directories. 7-Zip will prompt to overwrite unless `-y` or `-ao` is used.
+</Warning>
+
+<Tip>
+  To preview archive contents before extracting, use the list command:
+  ```bash
+  7z l archive.7z
+  ```
+</Tip>
+
+## Exit Codes
+
+| Code | Meaning |
+|------|--------|
+| 0 | Success (no errors) |
+| 1 | Warning (non-fatal error) |
+| 2 | Fatal error |
+| 7 | Command line error |
+| 8 | Not enough memory |
+
+## Related Commands
+
+- [List Command (l)](/commands/list) - View archive contents
+- [Test Command (t)](/commands/test) - Test archive integrity
+- [Add Command (a)](/commands/add) - Create archives

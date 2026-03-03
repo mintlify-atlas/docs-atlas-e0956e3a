@@ -1,0 +1,397 @@
+---
+title: Delete Command (d)
+description: Delete files from archives
+---
+
+The `d` (delete) command removes files from existing archives without extracting or recreating the entire archive.
+
+## Syntax
+
+```bash
+7z d [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Description
+
+The delete command:
+- Removes specified files from archives
+- Updates archive structure and indices
+- Maintains archive integrity
+- Supports pattern matching for bulk deletions
+- Works with encrypted archives (requires password)
+- Does not extract files
+
+## Common Options
+
+<ParamField path="archive_name" type="string" required>
+  Name of the archive to modify. Must already exist.
+</ParamField>
+
+<ParamField path="file_names" type="string" required>
+  Files or patterns to delete from archive. Supports wildcards.
+  
+  **Example:** `*.tmp` or `logs/old.log`
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Provide password for encrypted archives.
+  
+  **Example:** `-pMyPassword`
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories when matching patterns.
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include files matching pattern.
+  
+  **Example:** `-i!*.bak`
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files from deletion.
+  
+  **Example:** `-x!important.txt`
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Specify archive type (usually auto-detected).
+</ParamField>
+
+<ParamField path="-w{path}" type="string">
+  Set working directory for temporary files.
+</ParamField>
+
+<ParamField path="-bb{0-3}" type="number">
+  Set output log level.
+</ParamField>
+
+## Examples
+
+### Delete a single file
+```bash
+7z d archive.7z readme.txt
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Updating archive: archive.7z
+
+Items to delete: 1
+
+Files read from disk: 0
+Archive size: 22345 bytes (22 KiB)
+Everything is Ok
+```
+
+### Delete multiple files
+```bash
+7z d archive.7z file1.txt file2.txt file3.txt
+```
+
+### Delete all files with specific extension
+```bash
+7z d archive.7z *.tmp -r
+```
+
+### Delete files in a directory
+```bash
+7z d archive.7z logs/*
+```
+
+### Delete with pattern matching
+```bash
+7z d archive.7z *.log *.tmp *.bak -r
+```
+
+### Delete from encrypted archive
+```bash
+7z d -p archive.7z oldfile.txt
+```
+**Prompts for password:**
+```
+Enter password (will not be echoed):
+```
+
+### Delete except specific files
+```bash
+7z d archive.7z * -x!important.txt -x!readme.md
+```
+
+### Delete with confirmation
+```bash
+7z l archive.7z *.tmp && 7z d archive.7z *.tmp
+```
+List files first, then delete.
+
+## Advanced Examples
+
+### Delete old log files
+```bash
+7z d backup.7z logs/*.log
+```
+
+### Delete all temporary files recursively
+```bash
+7z d archive.7z *.tmp *.bak *.cache -r
+```
+
+### Delete specific directory
+```bash
+7z d archive.7z temp/
+```
+
+### Delete files with verbose output
+```bash
+7z d archive.7z *.old -bb2
+```
+
+### Delete from multiple archives
+```bash
+for archive in *.7z; do
+    echo "Processing $archive"
+    7z d "$archive" *.tmp -r
+done
+```
+
+### Safe delete (backup first)
+```bash
+cp archive.7z archive.7z.backup
+7z d archive.7z unwanted.txt
+if [ $? -eq 0 ]; then
+    echo "Delete successful"
+    rm archive.7z.backup
+else
+    echo "Delete failed, restoring backup"
+    mv archive.7z.backup archive.7z
+fi
+```
+
+## Pattern Matching
+
+### Wildcards
+
+- `*` - Matches any characters
+- `?` - Matches single character
+- `[abc]` - Matches any character in brackets
+
+### Examples
+
+```bash
+# Delete all .txt files
+7z d archive.7z *.txt
+
+# Delete files starting with 'temp'
+7z d archive.7z temp*
+
+# Delete files with specific pattern
+7z d archive.7z backup_2024*.zip
+
+# Delete with character class
+7z d archive.7z file[0-9].txt
+```
+
+## Deleting from Different Archive Types
+
+### ZIP archive
+```bash
+7z d archive.zip unwanted.txt
+```
+
+### RAR archive (if writable)
+```bash
+7z d archive.rar oldfile.doc
+```
+**Note:** Some RAR archives may be read-only.
+
+### TAR archive
+```bash
+7z d archive.tar removeme.txt
+```
+
+### 7z archive
+```bash
+7z d archive.7z obsolete/
+```
+
+## Scripting Examples
+
+### Clean Temporary Files
+```bash
+#!/bin/bash
+# Remove temporary files from all archives
+
+for archive in /backup/*.7z; do
+    echo "Cleaning $archive"
+    7z d "$archive" *.tmp *.bak *.cache -r -bd
+    if [ $? -eq 0 ]; then
+        echo "✓ Cleaned $archive"
+    else
+        echo "✗ Failed to clean $archive"
+    fi
+done
+```
+
+### Interactive Delete
+```bash
+#!/bin/bash
+# Interactively delete files from archive
+
+ARCHIVE="$1"
+PATTERN="$2"
+
+if [ -z "$ARCHIVE" ] || [ -z "$PATTERN" ]; then
+    echo "Usage: $0 <archive> <pattern>"
+    exit 1
+fi
+
+echo "Files matching pattern in $ARCHIVE:"
+7z l "$ARCHIVE" | grep "$PATTERN"
+
+read -p "Delete these files? (y/n): " confirm
+if [ "$confirm" = "y" ]; then
+    7z d "$ARCHIVE" "$PATTERN"
+    echo "Files deleted"
+else
+    echo "Operation cancelled"
+fi
+```
+
+### Delete with Size Threshold
+```bash
+#!/bin/bash
+# Delete large files from archive
+
+ARCHIVE="archive.7z"
+MAX_SIZE=$((10 * 1024 * 1024))  # 10 MB
+
+7z l -slt "$ARCHIVE" | awk '
+    /^Path = / { path = $3 }
+    /^Size = / { 
+        size = $3
+        if (size > '$MAX_SIZE') print path
+    }
+' | while read file; do
+    echo "Deleting large file: $file"
+    7z d "$ARCHIVE" "$file"
+done
+```
+
+### Delete Old Files by Date
+```bash
+#!/bin/bash
+# Delete files older than 30 days from archive
+
+ARCHIVE="backup.7z"
+CUTOFF_DATE=$(date -d '30 days ago' +%Y-%m-%d)
+
+7z l -slt "$ARCHIVE" | awk '
+    /^Path = / { path = $3 }
+    /^Modified = / {
+        date = $3
+        if (date < "'$CUTOFF_DATE'") print path
+    }
+' | while read file; do
+    echo "Deleting old file: $file"
+    7z d "$ARCHIVE" "$file"
+done
+```
+
+## Important Considerations
+
+### Archive Type Limitations
+
+- **7z** - Full delete support
+- **ZIP** - Full delete support  
+- **TAR** - Full delete support
+- **RAR** - Limited (depends on RAR version)
+- **GZIP/BZIP2** - Not supported (single-file compression)
+
+### Solid Archives
+
+For solid archives (`-ms=on`):
+- Deleting requires recompressing affected solid blocks
+- Can be slower than non-solid archives
+- May require significant temporary disk space
+
+### Encrypted Archives
+
+- Password required for header-encrypted archives
+- Password must match archive encryption
+- Cannot delete from corrupted encrypted archives
+
+## Performance Tips
+
+1. **Delete multiple files in one command** - Faster than multiple delete operations
+2. **Use patterns instead of individual files** - More efficient
+3. **Avoid frequent small deletions** - Reorganize and recreate if needed
+4. **Set working directory** - Use `-w` to control temp file location
+5. **Solid archives** - Consider recreating instead of deleting
+
+## Comparison: Delete vs Recreate
+
+### Delete Command
+```bash
+7z d archive.7z unwanted/
+```
+**Pros:**
+- Faster for small deletions
+- Preserves archive metadata
+- Atomic operation
+
+**Cons:**
+- Solid archives may need recompression
+- Multiple deletions can fragment archive
+
+### Recreate Archive
+```bash
+7z x archive.7z -o./temp
+rm -rf temp/unwanted/
+7z a new_archive.7z ./temp
+```
+**Pros:**
+- Can optimize compression
+- Clean archive structure
+- Can change compression settings
+
+**Cons:**
+- Requires disk space
+- Slower for small changes
+- Temporary extraction needed
+
+<Note>
+  The delete command modifies the archive in place. Always keep backups of important archives before performing delete operations.
+</Note>
+
+<Warning>
+  Deleted files cannot be recovered from the archive. Ensure you have backups or extract files before deletion if you might need them later.
+</Warning>
+
+<Tip>
+  Before deleting, use the list command to verify which files match your pattern:
+  ```bash
+  7z l archive.7z *.tmp -r
+  ```
+  Then delete:
+  ```bash
+  7z d archive.7z *.tmp -r
+  ```
+</Tip>
+
+## Exit Codes
+
+| Code | Meaning |
+|------|--------|
+| 0 | Success (files deleted) |
+| 1 | Warning (some files not found) |
+| 2 | Fatal error (archive corrupted or locked) |
+| 7 | Command line error |
+| 8 | Not enough memory |
+
+## Related Commands
+
+- [Add Command (a)](/commands/add) - Add files to archives
+- [Update Command (u)](/commands/update) - Update files in archives
+- [List Command (l)](/commands/list) - View archive contents

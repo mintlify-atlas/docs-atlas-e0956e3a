@@ -1,0 +1,278 @@
+---
+title: Add Command (a)
+description: Add files to archive or create new archives
+---
+
+The `a` (add) command creates new archives or adds files to existing archives.
+
+## Syntax
+
+```bash
+7z a [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Description
+
+The add command is the primary method for creating archives. It can:
+- Create new archives
+- Add files to existing archives
+- Update existing files in archives with newer versions
+- Create multi-volume archives
+- Create self-extracting archives
+- Apply compression and encryption
+
+## Common Options
+
+<ParamField path="archive_name" type="string" required>
+  Name of the archive to create or update. The archive type is determined by the file extension (e.g., .7z, .zip, .tar.gz) or by the `-t` switch.
+</ParamField>
+
+<ParamField path="file_names" type="string">
+  Files or directories to add. Supports wildcards (* and ?). If omitted, adds files from current directory.
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Set archive type: 7z, zip, gzip, bzip2, tar, wim, xz, etc.
+  
+  **Example:** `-t7z` or `-tzip`
+</ParamField>
+
+<ParamField path="-mx{N}" type="number" default="5">
+  Set compression level:
+  - `-mx0` = Store (no compression)
+  - `-mx1` = Fastest compression
+  - `-mx3` = Fast compression
+  - `-mx5` = Normal compression (default)
+  - `-mx7` = Maximum compression
+  - `-mx9` = Ultra compression
+</ParamField>
+
+<ParamField path="-m{Method}" type="string">
+  Set compression method and parameters:
+  - `-m0=LZMA2` - Use LZMA2 method
+  - `-md={Size}` - Dictionary size (16m, 32m, 64m, etc.)
+  - `-mfb={N}` - Number of fast bytes (5-273)
+  - `-mmt={N}` - Number of CPU threads
+  
+  **Example:** `-m0=LZMA2 -md=32m -mfb=64 -mmt=2`
+</ParamField>
+
+<ParamField path="-mmt{N}" type="number">
+  Set number of CPU threads for compression. Use `-mmt=on` for all available threads.
+  
+  **Example:** `-mmt=4` or `-mmt=on`
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Set password for archive encryption. Omit the password to be prompted.
+  
+  **Example:** `-pMySecretPass` or `-p` (prompts for password)
+</ParamField>
+
+<ParamField path="-mhe=on" type="flag">
+  Enable archive header encryption (7z format only). This hides file names and structure.
+</ParamField>
+
+<ParamField path="-v{Size}" type="string">
+  Create multi-volume archives. Size can use suffixes: b (bytes), k (KB), m (MB), g (GB).
+  
+  **Example:** `-v100m` (100 MB volumes)
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories. Include all files in subdirectories.
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files by pattern. Can be used multiple times.
+  
+  **Example:** `-x!*.tmp -x!*.bak`
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include files by pattern.
+  
+  **Example:** `-i!*.txt -i!*.doc`
+</ParamField>
+
+<ParamField path="-sdel" type="flag">
+  Delete files after compression (move to archive).
+</ParamField>
+
+<ParamField path="-ssw" type="flag">
+  Compress files that are currently open/locked by other applications.
+</ParamField>
+
+<ParamField path="-ssc" type="flag">
+  Set case-sensitive mode for file names.
+</ParamField>
+
+<ParamField path="-sfx{module}" type="string">
+  Create self-extracting archive. Optionally specify SFX module.
+  
+  **Example:** `-sfx7zCon.sfx`
+</ParamField>
+
+<ParamField path="-w{path}" type="string">
+  Set working (temporary) directory. Empty path means use system temp directory.
+</ParamField>
+
+<ParamField path="-si{name}" type="string">
+  Read data from stdin. Optionally specify file name within archive.
+</ParamField>
+
+<ParamField path="-stl" type="flag">
+  Set archive timestamp from the most recently modified file.
+</ParamField>
+
+<ParamField path="-snh" type="flag">
+  Store hard links as links (not as separate files).
+</ParamField>
+
+<ParamField path="-snl" type="flag">
+  Store symbolic links as links (not as file contents).
+</ParamField>
+
+## Examples
+
+### Create a basic 7z archive
+```bash
+7z a archive.7z files/
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Scanning the drive:
+3 folders, 12 files, 45678 bytes (45 KiB)
+
+Creating archive: archive.7z
+
+Add new data to archive: 3 folders, 12 files, 45678 bytes (45 KiB)
+
+Files read from disk: 12
+Archive size: 23456 bytes (23 KiB)
+Everything is Ok
+```
+
+### Create archive with maximum compression
+```bash
+7z a -t7z -mx=9 archive.7z files/
+```
+
+### Create password-protected archive with header encryption
+```bash
+7z a -p -mhe=on secret.7z files/
+```
+**Prompts for password:**
+```
+Enter password (will not be echoed):
+Verify password (will not be echoed):
+```
+
+### Create ZIP archive with normal compression
+```bash
+7z a -tzip archive.zip files/
+```
+
+### Create multi-volume archive (100 MB volumes)
+```bash
+7z a -v100m archive.7z large_files/
+```
+**Creates:**
+```
+archive.7z.001
+archive.7z.002
+archive.7z.003
+...
+```
+
+### Add files with specific extension
+```bash
+7z a archive.7z *.txt -r
+```
+
+### Exclude specific files
+```bash
+7z a archive.7z files/ -x!*.tmp -x!*.bak
+```
+
+### Create archive and delete source files
+```bash
+7z a -sdel archive.7z files/
+```
+
+### Create archive with specific compression method
+```bash
+7z a -t7z -m0=LZMA2 -mx=9 -md=64m -mfb=64 -mmt=4 archive.7z files/
+```
+
+### Create archive from stdin
+```bash
+cat file.txt | 7z a -si archive.7z
+```
+
+### Create self-extracting archive
+```bash
+7z a -sfx archive.exe files/
+```
+
+### Update existing archive
+```bash
+7z a existing.7z newfile.txt
+```
+
+### Create tar.gz archive (two-step compression)
+```bash
+7z a -ttar archive.tar files/
+7z a -tgzip archive.tar.gz archive.tar
+```
+Or in one command:
+```bash
+tar -cf - files/ | 7z a -si -tgzip archive.tar.gz
+```
+
+## Advanced Usage
+
+### Solid Archives
+
+For maximum compression on similar files:
+```bash
+7z a -t7z -m0=lzma2 -mx=9 -ms=on archive.7z files/
+```
+
+### Multiple CPU Threads
+
+Use all available CPU cores:
+```bash
+7z a -mmt=on archive.7z files/
+```
+
+### Custom Dictionary Size
+
+Larger dictionary = better compression but more memory:
+```bash
+7z a -md=256m archive.7z files/
+```
+
+<Note>
+  When adding files to an existing archive, 7-Zip updates files that have been modified and adds new files. Use the `-u` (update) command for more control over update behavior.
+</Note>
+
+<Warning>
+  The `-sdel` switch permanently deletes source files after compression. Use with caution!
+</Warning>
+
+<Tip>
+  For best compression of text files, use:
+  ```bash
+  7z a -t7z -m0=PPMd -mx=9 archive.7z textfiles/
+  ```
+  PPMd algorithm works better for text than LZMA2.
+</Tip>
+
+## Related Commands
+
+- [Update Command (u)](/commands/update) - Update files with more options
+- [Extract Command (x, e)](/commands/extract) - Extract files from archives
+- [Delete Command (d)](/commands/delete) - Remove files from archives

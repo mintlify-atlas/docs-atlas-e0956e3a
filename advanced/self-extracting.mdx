@@ -1,0 +1,356 @@
+---
+title: Self-extracting archives (SFX)
+description: Create standalone executables that extract archives without requiring 7-Zip
+---
+
+Self-extracting archives (SFX) are executable files that can extract their contents without requiring 7-Zip or any other archiver to be installed.
+
+## What are SFX Archives?
+
+An SFX archive combines:
+- A small executable stub (SFX module)
+- The compressed archive data
+- Optional configuration and GUI
+
+The result is a `.exe` file (Windows) or executable binary (Linux/macOS) that can extract itself.
+
+## Creating SFX Archives
+
+### Basic SFX Archive
+
+```bash
+# Windows
+7z a -sfx archive.exe files/
+
+# The result is archive.exe that can be double-clicked to extract
+```
+
+### With Custom SFX Module
+
+```bash
+# Use specific SFX module
+7z a -sfx7z.sfx archive.exe files/
+```
+
+## SFX Module Types
+
+7-Zip includes three SFX modules:
+
+### 1. Console SFX (7zCon.sfx)
+
+**Location**: `CPP/7zip/Bundles/SFXCon/`
+
+```bash
+7z a -sfx7zCon.sfx installer.exe files/
+```
+
+**Features**:
+- Command-line interface
+- No GUI dependencies
+- Small size (~100 KB)
+- Ideal for scripts and automation
+
+### 2. Windows GUI SFX (7z.sfx)
+
+**Location**: `CPP/7zip/Bundles/SFXWin/`
+
+```bash
+7z a -sfx7z.sfx installer.exe files/
+```
+
+**Features**:
+- Graphical interface
+- User-friendly extraction dialog
+- Size: ~150 KB
+- Best for end-user distribution
+
+### 3. Installer SFX (7zS.sfx)
+
+**Location**: `CPP/7zip/Bundles/SFXSetup/`
+
+```bash
+7z a -sfx7zS.sfx installer.exe files/
+```
+
+**Features**:
+- Installation wizard interface
+- Run commands after extraction
+- Set extraction path
+- Overwrite prompts
+- Best for software installers
+
+## SFX Configuration
+
+Create a configuration file to customize SFX behavior:
+
+### config.txt
+
+```text
+;!@Install@!UTF-8!
+Title="My Application Installer"
+BeginPrompt="Install My Application?"
+Progress="yes"
+RunProgram="setup.exe"
+Directory="C:\\Program Files\\MyApp"
+;!@InstallEnd@!
+```
+
+### Create SFX with Config
+
+```bash
+# Create archive with config
+copy /b 7zS.sfx + config.txt + archive.7z installer.exe
+```
+
+Or use 7-Zip:
+
+```bash
+7z a -sfx7zS.sfx installer.exe files/ -c config.txt
+```
+
+## Configuration Options
+
+<ParamField path="Title" type="string">
+  Window title for installer
+  
+  ```text
+  Title="My Software v1.0"
+  ```
+</ParamField>
+
+<ParamField path="BeginPrompt" type="string">
+  Message shown before extraction
+  
+  ```text
+  BeginPrompt="Do you want to install My Software?"
+  ```
+</ParamField>
+
+<ParamField path="Progress" type="string">
+  Show progress dialog ("yes" or "no")
+  
+  ```text
+  Progress="yes"
+  ```
+</ParamField>
+
+<ParamField path="RunProgram" type="string">
+  Program to run after extraction
+  
+  ```text
+  RunProgram="setup.exe"
+  RunProgram="hidcon:setup.exe"
+  ```
+</ParamField>
+
+<ParamField path="Directory" type="string">
+  Default extraction directory
+  
+  ```text
+  Directory="C:\\Program Files\\MyApp"
+  Directory="%%T\\MyApp"
+  ```
+</ParamField>
+
+<ParamField path="ExtractDialogText" type="string">
+  Text in extraction dialog
+  
+  ```text
+  ExtractDialogText="Please wait while files are extracted..."
+  ```
+</ParamField>
+
+<ParamField path="OverwriteMode" type="string">
+  How to handle existing files
+  
+  - `0` - Ask user
+  - `1` - Overwrite without prompt
+  - `2` - Skip existing files
+  
+  ```text
+  OverwriteMode="0"
+  ```
+</ParamField>
+
+<ParamField path="InstallPath" type="string">
+  Installation path with user prompt
+  
+  ```text
+  InstallPath="C:\\Program Files\\MyApp"
+  ```
+</ParamField>
+
+## Path Variables
+
+Use special variables in paths:
+
+| Variable | Description | Example |
+|----------|-------------|--------|
+| `%%S` | System directory | `C:\Windows\System32` |
+| `%%P` | Program Files | `C:\Program Files` |
+| `%%T` | Temp directory | `C:\Users\...\AppData\Local\Temp` |
+| `%%HomeDrive%%` | Home drive | `C:` |
+
+```text
+Directory="%%T%%\\MyApp"
+RunProgram="%%S%%\\notepad.exe"
+```
+
+## Examples
+
+### Software Installer
+
+```text
+;!@Install@!UTF-8!
+Title="MyApp 2.0 Setup"
+BeginPrompt="Install MyApp 2.0?"
+Progress="yes"
+ExtractDialogText="Installing MyApp..."
+Directory="C:\\Program Files\\MyApp"
+RunProgram="setup.exe"
+RunProgram="hidcon:cleanup.bat"
+;!@InstallEnd@!
+```
+
+```bash
+7z a temp.7z files/
+copy /b 7zS.sfx + config.txt + temp.7z MyAppSetup.exe
+```
+
+### Silent Extraction
+
+```text
+;!@Install@!UTF-8!
+Progress="no"
+Directory="%%T%%\\extract"
+RunProgram="hidcon:install.bat"
+;!@InstallEnd@!
+```
+
+### User-Interactive Installer
+
+```text
+;!@Install@!UTF-8!
+Title="Photo Gallery v3.5"
+BeginPrompt="Do you want to install Photo Gallery?\n\nClick OK to continue."
+Progress="yes"
+ExtractDialogText="Extracting files..."
+InstallPath="C:\\Program Files\\PhotoGallery"
+OverwriteMode="0"
+RunProgram="%%InstallPath%%\\setup.exe"
+;!@InstallEnd@!
+```
+
+## Creating Multi-Platform SFX
+
+### Linux/macOS SFX
+
+Create self-extracting shell archives:
+
+```bash
+#!/bin/bash
+# Create SFX for Linux
+cat sfx_stub.sh archive.7z > installer.sh
+chmod +x installer.sh
+```
+
+### sfx_stub.sh
+
+```bash
+#!/bin/bash
+ARCHIVE_START=`awk '/^__ARCHIVE_BELOW__/ {print NR + 1; exit 0; }' $0`
+tail -n+$ARCHIVE_START $0 | 7z x -si
+exit 0
+__ARCHIVE_BELOW__
+```
+
+## SFX Compression Options
+
+Use maximum compression for SFX archives:
+
+```bash
+# Maximum compression SFX
+7z a -sfx -mx=9 -md=64m -mfb=273 installer.exe files/
+
+# With encryption
+7z a -sfx -p -mhe=on -mx=9 installer.exe files/
+```
+
+## SFX Module Source Code
+
+The SFX modules are built from:
+
+- **Console SFX**: `CPP/7zip/Bundles/SFXCon/`
+  - Main file: `SfxCon.cpp`
+  - Size: ~100 KB
+  - No GUI dependencies
+
+- **GUI SFX**: `CPP/7zip/Bundles/SFXWin/`
+  - Main file: `SfxWin.cpp`
+  - Uses Windows Common Controls
+  - Size: ~150 KB
+
+- **Setup SFX**: `CPP/7zip/Bundles/SFXSetup/`
+  - Main file: `ExtractCallback.cpp`, `ExtractEngine.cpp`
+  - Full installer functionality
+  - Size: ~160 KB
+
+## Building Custom SFX Modules
+
+You can build custom SFX modules from source:
+
+```bash
+# Windows with Visual Studio
+cd CPP/7zip/Bundles/SFXWin
+nmake
+
+# Result: 7z.sfx
+```
+
+## Best Practices
+
+<Tip>
+**Use SFX archives for**:
+- Software distribution
+- Installation packages
+- Sending to users without 7-Zip
+- One-click extraction
+</Tip>
+
+<Warning>
+**Considerations**:
+- SFX files are larger (adds ~100-160 KB)
+- Some antivirus software may flag SFX files
+- Test on target systems
+- Sign executables to avoid security warnings
+</Warning>
+
+## Code Signing
+
+Sign SFX executables to avoid security warnings:
+
+```cmd
+# Windows code signing
+signtool sign /f certificate.pfx /p password /t http://timestamp.server installer.exe
+```
+
+## Troubleshooting
+
+### SFX Won't Run
+
+- **Check compatibility**: Ensure SFX module matches target OS
+- **Antivirus**: Whitelist or sign the executable
+- **Permissions**: Run as administrator if needed
+
+### Custom Module Not Found
+
+```bash
+# Specify full path to SFX module
+7z a -sfx"C:\\7-Zip\\7zS.sfx" installer.exe files/
+```
+
+## See Also
+
+- [Encryption](/advanced/encryption)
+- [Solid Archives](/advanced/solid-archives)
+- [Add Command](/commands/add)

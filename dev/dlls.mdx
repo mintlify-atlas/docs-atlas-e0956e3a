@@ -1,0 +1,394 @@
+---
+title: DLL integration
+description: Integrate 7-Zip functionality into Windows applications using DLLs
+---
+
+7-Zip provides COM-based DLLs for integrating archive functionality into Windows applications.
+
+## Available DLLs
+
+### Format DLLs
+
+| DLL | Bundle Location | Formats Supported |
+|-----|----------------|------------------|
+| **7z.dll** | `Format7zF` | All formats (7z, ZIP, TAR, RAR, ISO, etc.) |
+| **7za.dll** | `Format7z` | 7z format only |
+| **7zxa.dll** | `Format7zExtract` | 7z extraction only |
+| **7zr.dll** | `Format7zR` | 7z reduced version |
+| **7zxr.dll** | `Format7zExtractR` | 7z extraction reduced |
+
+From `DOC/readme.txt` (lines 270-274):
+```
+Format7zF       7z.dll:   all formats
+Format7z        7za.dll:  .7z support
+Format7zExtract 7zxa.dll: .7z support, extracting only
+Format7zR       7zr.dll:  .7z support, reduced version
+Format7zExtractR 7zxr.dll: .7z support, reduced version, extracting only
+```
+
+### GUI DLLs
+
+| DLL | Description |
+|-----|-------------|
+| **7-zip.dll** | Shell extension for Windows Explorer |
+| **7-zip32.dll** | FAR Manager plugin (32-bit) |
+| **7-zip64.dll** | FAR Manager plugin (64-bit) |
+
+## DLL Architecture
+
+### COM Interface
+
+7-Zip DLLs use COM interfaces but with a simplified creation mechanism:
+
+```cpp
+// Standard function exported by all format DLLs
+typedef HRESULT (WINAPI *CreateObjectFunc)(
+    const GUID *clsid,
+    const GUID *iid,
+    void **outObject
+);
+```
+
+From `DOC/readme.txt` (lines 217-228):
+> 7-Zip consists of COM modules (DLL files).
+> But 7-Zip doesn't use standard COM interfaces for creating objects.
+
+## Loading DLLs
+
+### Load Format DLL
+
+```cpp
+#include <windows.h>
+#include "7zip/Archive/IArchive.h"
+#include "7zip/IDecl.h"
+
+// Load DLL
+HMODULE lib = LoadLibrary(TEXT("7z.dll"));
+
+if (!lib) {
+    // Error handling
+    return E_FAIL;
+}
+
+// Get CreateObject function
+typedef HRESULT (WINAPI *CreateObjectFunc)(
+    const GUID *clsid,
+    const GUID *iid,
+    void **outObject
+);
+
+CreateObjectFunc createObject = (CreateObjectFunc)
+    GetProcAddress(lib, "CreateObject");
+
+if (!createObject) {
+    FreeLibrary(lib);
+    return E_FAIL;
+}
+```
+
+### Create Archive Handler
+
+```cpp
+// For 7z archives
+IInArchive *archive = NULL;
+HRESULT hr = createObject(
+    &CLSID_CFormat7z,      // 7z format
+    &IID_IInArchive,       // Read interface
+    (void**)&archive
+);
+
+if (SUCCEEDED(hr)) {
+    // Use archive interface
+    // ...
+    archive->Release();
+}
+
+FreeLibrary(lib);
+```
+
+## Archive Interfaces
+
+### IInArchive - Reading Archives
+
+From `CPP/7zip/Archive/IArchive.h`:
+
+```cpp
+interface IInArchive : public IUnknown
+{
+    // Open archive
+    STDMETHOD(Open)(
+        IInStream *stream,
+        const UInt64 *maxCheckStartPosition,
+        IArchiveOpenCallback *openCallback
+    ) = 0;
+    
+    // Close archive
+    STDMETHOD(Close)() = 0;
+    
+    // Get number of items
+    STDMETHOD(GetNumberOfItems)(UInt32 *numItems) = 0;
+    
+    // Get item property
+    STDMETHOD(GetProperty)(
+        UInt32 index,
+        PROPID propID,
+        PROPVARIANT *value
+    ) = 0;
+    
+    // Extract files
+    STDMETHOD(Extract)(
+        const UInt32 *indices,
+        UInt32 numItems,
+        Int32 testMode,
+        IArchiveExtractCallback *extractCallback
+    ) = 0;
+};
+```
+
+### IOutArchive - Creating Archives
+
+```cpp
+interface IOutArchive : public IUnknown
+{
+    // Update/create archive
+    STDMETHOD(UpdateItems)(
+        ISequentialOutStream *outStream,
+        UInt32 numItems,
+        IArchiveUpdateCallback *updateCallback
+    ) = 0;
+    
+    // Get file time type
+    STDMETHOD(GetFileTimeType)(UInt32 *type) = 0;
+};
+```
+
+## Property IDs
+
+From `CPP/7zip/PropID.h` (lines 1-70):
+
+```cpp
+enum PROPID
+{
+    kpidNoProperty = 0,
+    kpidPath,              // File path (VT_BSTR)
+    kpidName,              // File name (VT_BSTR)
+    kpidExtension,         // Extension (VT_BSTR)
+    kpidIsDir,             // Is directory (VT_BOOL)
+    kpidSize,              // Uncompressed size (VT_UI8)
+    kpidPackSize,          // Compressed size (VT_UI8)
+    kpidAttrib,            // Attributes (VT_UI4)
+    kpidCTime,             // Creation time (VT_FILETIME)
+    kpidATime,             // Access time (VT_FILETIME)
+    kpidMTime,             // Modification time (VT_FILETIME)
+    kpidSolid,             // Is solid (VT_BOOL)
+    kpidCommented,         // Has comment (VT_BOOL)
+    kpidEncrypted,         // Is encrypted (VT_BOOL)
+    kpidCRC,               // CRC32 (VT_UI4)
+    kpidMethod,            // Compression method (VT_BSTR)
+    kpidHostOS,            // Host OS (VT_BSTR)
+    // ... more properties
+};
+```
+
+## Example: Reading Archive
+
+```cpp
+#include "7zip/Archive/IArchive.h"
+#include "Common/MyString.h"
+#include <stdio.h>
+
+void ListArchive(IInArchive *archive)
+{
+    UInt32 numItems = 0;
+    archive->GetNumberOfItems(&numItems);
+    
+    printf("Files in archive: %u\n", numItems);
+    
+    for (UInt32 i = 0; i < numItems; i++)
+    {
+        // Get file name
+        PROPVARIANT prop;
+        PropVariantInit(&prop);
+        
+        archive->GetProperty(i, kpidPath, &prop);
+        if (prop.vt == VT_BSTR)
+        {
+            wprintf(L"%s", prop.bstrVal);
+        }
+        PropVariantClear(&prop);
+        
+        // Get file size
+        archive->GetProperty(i, kpidSize, &prop);
+        if (prop.vt == VT_UI8)
+        {
+            printf(" - %llu bytes\n", prop.uhVal.QuadPart);
+        }
+        PropVariantClear(&prop);
+    }
+}
+```
+
+## Example: Extracting Files
+
+```cpp
+class CExtractCallback : public IArchiveExtractCallback
+{
+public:
+    // IProgress
+    STDMETHOD(SetTotal)(UInt64 total) { return S_OK; }
+    STDMETHOD(SetCompleted)(const UInt64 *completeValue) { return S_OK; }
+    
+    // IArchiveExtractCallback
+    STDMETHOD(GetStream)(
+        UInt32 index,
+        ISequentialOutStream **outStream,
+        Int32 askExtractMode)
+    {
+        // Create output stream for file
+        *outStream = CreateOutFileStream(index);
+        return S_OK;
+    }
+    
+    STDMETHOD(PrepareOperation)(Int32 askExtractMode) { return S_OK; }
+    STDMETHOD(SetOperationResult)(Int32 resultEOperationResult) { return S_OK; }
+};
+
+void ExtractArchive(IInArchive *archive)
+{
+    CExtractCallback *callback = new CExtractCallback();
+    
+    // Extract all files
+    HRESULT hr = archive->Extract(
+        NULL,      // All files (NULL = all)
+        (UInt32)-1, // Number of items
+        0,         // Test mode (0 = extract)
+        callback
+    );
+    
+    callback->Release();
+}
+```
+
+## Example: Creating Archive
+
+```cpp
+class CUpdateCallback : public IArchiveUpdateCallback
+{
+public:
+    // IProgress
+    STDMETHOD(SetTotal)(UInt64 total) { return S_OK; }
+    STDMETHOD(SetCompleted)(const UInt64 *completeValue) { return S_OK; }
+    
+    // IArchiveUpdateCallback
+    STDMETHOD(GetUpdateItemInfo)(
+        UInt32 index,
+        Int32 *newData,
+        Int32 *newProperties,
+        UInt32 *indexInArchive)
+    {
+        *newData = 1;
+        *newProperties = 1;
+        *indexInArchive = (UInt32)-1; // New file
+        return S_OK;
+    }
+    
+    STDMETHOD(GetProperty)(UInt32 index, PROPID propID, PROPVARIANT *value)
+    {
+        PropVariantInit(value);
+        
+        switch (propID)
+        {
+            case kpidPath:
+                value->vt = VT_BSTR;
+                value->bstrVal = SysAllocString(L"file.txt");
+                break;
+            case kpidIsDir:
+                value->vt = VT_BOOL;
+                value->boolVal = VARIANT_FALSE;
+                break;
+            case kpidSize:
+                value->vt = VT_UI8;
+                value->uhVal.QuadPart = fileSize;
+                break;
+        }
+        return S_OK;
+    }
+    
+    STDMETHOD(GetStream)(UInt32 index, ISequentialInStream **inStream)
+    {
+        // Return input stream for file
+        *inStream = CreateInFileStream(index);
+        return S_OK;
+    }
+    
+    STDMETHOD(SetOperationResult)(Int32 operationResult) { return S_OK; }
+};
+
+void CreateArchive(IOutArchive *outArchive, IOutStream *outStream)
+{
+    CUpdateCallback *callback = new CUpdateCallback();
+    
+    HRESULT hr = outArchive->UpdateItems(
+        outStream,
+        numFiles,  // Number of files to add
+        callback
+    );
+    
+    callback->Release();
+}
+```
+
+## Format CLSIDs
+
+From `CPP/7zip/Guid.txt`:
+
+```cpp
+// Format GUIDs
+DEFINE_GUID(CLSID_CFormat7z,
+  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0x07, 0x00, 0x00);
+
+DEFINE_GUID(CLSID_CFormatZip,
+  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0x01, 0x00, 0x00);
+
+DEFINE_GUID(CLSID_CFormatTar,
+  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0xEE, 0x00, 0x00);
+
+DEFINE_GUID(CLSID_CFormatRar,
+  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0x03, 0x00, 0x00);
+```
+
+## Building DLLs
+
+### Windows
+
+```cmd
+cd CPP\7zip\Bundles\Format7zF
+nmake
+```
+
+Result: `7z.dll`
+
+### Project Files
+
+Visual Studio project files are included:
+- `Format7zF.dsp` - Visual Studio 6.0
+- Can be upgraded to newer VS versions
+
+## DLL Dependencies
+
+The format DLLs have no external dependencies:
+- Statically linked runtime
+- No MFC or ATL required
+- Only Windows API
+
+From `DOC/readme.txt` (lines 217-228):
+> If you don't like it, you must use standalone version of DLL.
+> To compile standalone version of DLL you must include all used parts
+> to project and define some defs.
+
+## See Also
+
+- [SDK Overview](/dev/sdk-overview)
+- [Building from Source](/dev/building)
+- [7z Format](/dev/7z-format)
+- [Windows Build Guide](/dev/windows)

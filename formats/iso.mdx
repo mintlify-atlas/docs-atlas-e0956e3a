@@ -1,0 +1,470 @@
+---
+title: ISO Format
+description: ISO 9660 optical disc image format specification and usage guide
+---
+
+ISO 9660 is the standard file system format for CD-ROM, DVD, and Blu-ray disc images, widely used for software distribution and data archival.
+
+## Format Overview
+
+ISO provides:
+
+- **Optical disc images** - CD, DVD, Blu-ray format support
+- **Universal compatibility** - Readable on all operating systems
+- **No compression** - Stores data as-is
+- **Bootable images** - El Torito boot specification
+- **Large capacity** - Up to 8 TB (Blu-ray)
+- **File system standard** - ISO 9660, Joliet, UDF, Rock Ridge
+
+<Note>
+ISO images are exact copies of optical disc contents, preserving all data including boot information and file system structures.
+</Note>
+
+## Format Structure
+
+From `source/CPP/7zip/Archive/Iso/IsoHeader.h:10-26`, ISO uses a volume descriptor system:
+
+### Volume Descriptor Types
+
+```cpp
+namespace NVolDescType {
+  const Byte kBootRecord = 0;         // Boot record
+  const Byte kPrimaryVol = 1;         // Primary volume descriptor
+  const Byte kSupplementaryVol = 2;   // Supplementary volume (Joliet)
+  const Byte kVolParttition = 3;      // Volume partition descriptor
+  const Byte kTerminator = 255;       // Terminator
+}
+
+const Byte kVersion = 1;
+```
+
+### ISO Structure
+
+```
++-------------------------------+
+| System Area (32 KB)           |
++-------------------------------+
+| Volume Descriptors            |
+| - Primary Volume Descriptor   |
+| - Supplementary (Joliet)      |
+| - Boot Record (El Torito)     |
+| - Terminator                  |
++-------------------------------+
+| Path Tables                   |
++-------------------------------+
+| Directories and Files         |
++-------------------------------+
+```
+
+### Start Position
+
+From `IsoHeader.h:30`:
+
+```cpp
+const UInt32 kStartPos = 0x8000;  // 32768 bytes (sector 16)
+```
+
+Volume descriptors start at sector 16 (32 KB offset).
+
+## File Flags
+
+From `IsoHeader.h:22-26`:
+
+```cpp
+namespace NFileFlags {
+  const Byte kDirectory = 1 << 1;        // Entry is directory
+  const Byte kNonFinalExtent = 1 << 7;   // Multi-extent file
+}
+```
+
+## Boot Support (El Torito)
+
+El Torito specification enables bootable CD/DVD/BD images (`IsoHeader.h:32-60`):
+
+### Boot Entry Types
+
+```cpp
+namespace NBootEntryId {
+  const Byte kValidationEntry = 1;
+  const Byte kInitialEntryNotBootable = 0;
+  const Byte kInitialEntryBootable = 0x88;
+  const Byte kMoreHeaders = 0x90;
+  const Byte kFinalHeader = 0x91;
+  const Byte kExtensionIndicator = 0x44;
+}
+```
+
+### Boot Platform Types
+
+```cpp
+namespace NBootPlatformId {
+  const Byte kX86 = 0;       // PC (x86, x64)
+  const Byte kPowerPC = 1;   // PowerPC
+  const Byte kMac = 2;       // Macintosh
+}
+```
+
+### Boot Media Types
+
+```cpp
+namespace NBootMediaType {
+  const Byte kNoEmulation = 0;    // No emulation
+  const Byte k1d2Floppy = 1;      // 1.2 MB floppy
+  const Byte k1d44Floppy = 2;     // 1.44 MB floppy
+  const Byte k2d88Floppy = 3;     // 2.88 MB floppy
+  const Byte kHardDisk = 4;       // Hard disk emulation
+}
+```
+
+<Info>
+Modern bootable ISOs typically use "No Emulation" mode with UEFI support for maximum compatibility.
+</Info>
+
+## File System Extensions
+
+### ISO 9660 (Standard)
+
+**Limitations:**
+- Filenames: 8.3 format (DOS-like)
+- Maximum directory depth: 8 levels
+- Character set: Limited ASCII
+
+### Joliet Extension
+
+**Improvements:**
+- Long filenames: Up to 64 Unicode characters
+- Full Unicode support
+- Windows-compatible
+
+### Rock Ridge Extension
+
+**Unix support:**
+- Long filenames
+- POSIX file permissions
+- Symbolic links
+- Device files
+- User/group ownership
+
+### UDF (Universal Disk Format)
+
+**Modern format:**
+- DVD/Blu-ray standard
+- Files larger than 4 GB
+- Packet writing support
+- Better performance
+
+## Usage Examples
+
+### Create ISO from Directory
+
+```bash
+7z a -tiso disk.iso files/
+```
+
+Creates standard ISO 9660 image.
+
+### Extract ISO Contents
+
+```bash
+7z x disk.iso
+```
+
+Extracts all files preserving directory structure.
+
+### List ISO Contents
+
+```bash
+7z l disk.iso
+```
+
+Shows file listing with sizes and dates.
+
+### Extract Specific Files
+
+```bash
+7z x disk.iso -i!setup.exe -i!docs\*.txt
+```
+
+### Test ISO Integrity
+
+```bash
+7z t disk.iso
+```
+
+Verifies ISO structure and readability.
+
+### View Detailed Information
+
+```bash
+7z l -slt disk.iso
+```
+
+Shows volume information, file system type, and metadata.
+
+## Creating Bootable ISOs
+
+<Warning>
+7-Zip can extract bootable ISOs but has limited capabilities for creating bootable images. For creating bootable ISOs, use specialized tools like:
+- mkisofs / genisoimage (Linux)
+- ImgBurn (Windows)
+- oscdimg (Windows ADK)
+</Warning>
+
+### Extract Boot Image
+
+```bash
+# Extract boot catalog and image
+7z x windows.iso -i!boot\*
+```
+
+## ISO Size Limits
+
+| Media | Capacity | Use Case |
+|-------|----------|----------|
+| CD-ROM | 650-700 MB | Small distributions |
+| DVD-5 (Single layer) | 4.7 GB | Software, movies |
+| DVD-9 (Dual layer) | 8.5 GB | Large software |
+| BD-R (Single layer) | 25 GB | HD video, games |
+| BD-R DL (Dual layer) | 50 GB | 4K video |
+| BD-R XL (Triple layer) | 100 GB | Archival |
+| BD-R XL (Quad layer) | 128 GB | Large archives |
+
+## Implementation Details
+
+From `source/CPP/7zip/Archive/Iso/IsoIn.h:16-64`, the handler uses directory structures:
+
+### Directory Structure
+
+```cpp
+struct CDir: public CDirRecord {
+  CDir *Parent;
+  CObjectVector<CDir> _subItems;
+  
+  AString GetPath(bool checkSusp, unsigned skipSize) const;
+  void GetPathU(UString &s) const;
+};
+```
+
+### DateTime Structure
+
+```cpp
+struct CDateTime {
+  UInt16 Year;
+  Byte Month;
+  Byte Day;
+  Byte Hour;
+  Byte Minute;
+  Byte Second;
+  Byte Hundredths;
+  signed char GmtOffset;  // GMT offset in 15-min intervals
+};
+```
+
+### ISO Implementation Files
+
+```
+source/CPP/7zip/Archive/Iso/
+├── IsoHandler.cpp      # Archive handling
+├── IsoHandler.h        # Handler interface  
+├── IsoIn.cpp          # ISO reading
+├── IsoIn.h            # ISO structures
+├── IsoHeader.h        # Format constants
+├── IsoItem.h          # Item structures
+└── IsoRegister.cpp    # Format registration
+```
+
+## Common Use Cases
+
+### Software Distribution
+
+```bash
+# Extract installation files
+7z x software.iso
+```
+
+### Operating System Installation
+
+```bash
+# Extract Windows/Linux ISO
+7z x ubuntu-20.04.iso
+7z x windows-10.iso
+```
+
+### Disc Backup
+
+```bash
+# Create ISO from optical disc (use dd or similar)
+dd if=/dev/cdrom of=backup.iso bs=2048
+
+# Extract backed up disc
+7z x backup.iso
+```
+
+### Game Preservation
+
+```bash
+# Extract game data
+7z x game.iso -o"C:\Games\ExtractedGame"
+```
+
+### Firmware/Driver Archives
+
+```bash
+# Extract specific drivers
+7z x drivers.iso -i!network\*.inf -i!network\*.sys
+```
+
+## Working with Multiple Sessions
+
+Some ISOs contain multiple sessions (multisession CDs/DVDs):
+
+```bash
+# 7-Zip typically reads the last session
+7z l multisession.iso
+```
+
+## UDF Support
+
+7-Zip supports UDF format commonly used on DVDs:
+
+```bash
+# Extract UDF DVD image
+7z x movie-dvd.iso
+```
+
+UDF features:
+- Files larger than 4 GB
+- Better performance
+- DVD-Video compatibility
+
+## Hybrid ISOs
+
+Some ISOs combine multiple file systems:
+
+- **ISO 9660 + Joliet** - Windows/DOS compatibility
+- **ISO 9660 + Rock Ridge** - Unix/Linux compatibility
+- **ISO 9660 + UDF** - Universal compatibility
+- **El Torito + UEFI** - Legacy and UEFI boot support
+
+## Comparison with Other Formats
+
+### ISO vs WIM
+
+| Feature | ISO | WIM |
+|---------|-----|-----|
+| Compression | No | Yes |
+| Modification | Difficult | Easy |
+| Bootable | Yes (El Torito) | Yes (WinPE) |
+| Use case | Optical media | Windows deployment |
+| File limit | ~4 GB (ISO9660) | 4 GB per image |
+
+### ISO vs ZIP/7z
+
+| Feature | ISO | ZIP/7z |
+|---------|-----|--------|
+| Purpose | Disc image | Archive |
+| Compression | No | Yes |
+| Bootable | Yes | No (ZIP), SFX only (7z) |
+| Mounting | Yes | No (without tools) |
+| Size limit | 8 TB | 16 EB |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="For Distribution" icon="compact-disc">
+    Use ISO for software requiring optical media format
+  </Card>
+  <Card title="For Archival" icon="box-archive">
+    Combine with compression: compress ISO with 7z/XZ
+  </Card>
+  <Card title="For Installation Media" icon="download">
+    Preserve bootability - don't modify boot structures
+  </Card>
+  <Card title="For Compatibility" icon="check">
+    Use Joliet extension for Windows long filename support
+  </Card>
+</CardGroup>
+
+## Advanced Operations
+
+### Compress ISO for Storage
+
+ISO images contain no compression:
+
+```bash
+# Compress ISO with 7z
+7z a -t7z -mx=9 disk.iso.7z disk.iso
+
+# Or with XZ
+7z a -txz -mx=9 disk.iso.xz disk.iso
+```
+
+Typical compression:
+- Software ISOs: 40-60% size reduction
+- Movie DVDs: 5-15% (already compressed)
+- Data ISOs: 30-70% depending on content
+
+### Convert ISO to Other Formats
+
+```bash
+# Extract ISO and create 7z archive
+7z x disk.iso -o"temp\"
+7z a -t7z -mx=9 disk.7z temp\*
+```
+
+### Verify ISO Hash
+
+```bash
+# Calculate hash (using CertUtil on Windows)
+certutil -hashfile disk.iso SHA256
+
+# Or using 7-Zip to check integrity
+7z t disk.iso
+```
+
+## Limitations
+
+<Warning>
+ISO format limitations:
+- No built-in compression
+- Large file sizes
+- ISO 9660 limited to 4 GB files (use UDF for larger)
+- Difficult to modify once created
+- No encryption support
+- Requires burning software for physical discs
+</Warning>
+
+## Tools
+
+### Extraction Tools
+
+- **7-Zip** - Extract ISO contents
+- **WinRAR** - Extract and browse ISOs
+- **Windows Explorer** - Mount ISO (Windows 8+)
+- **macOS Disk Utility** - Mount and create ISOs
+
+### Creation Tools
+
+- **ImgBurn** - Create/burn bootable ISOs (Windows)
+- **mkisofs/genisoimage** - Create ISOs (Linux)
+- **Brasero** - CD/DVD burning (Linux)
+- **oscdimg** - Windows ADK ISO creation
+
+### Mounting Tools
+
+```bash
+# Windows 8+ (built-in)
+Explorer: Right-click ISO > Mount
+
+# Linux
+sudo mount -o loop disk.iso /mnt/iso
+
+# macOS
+hdiutil mount disk.iso
+```
+
+## See Also
+
+- [Archive Formats Overview](/formats/overview)
+- [WIM Format](/formats/wim)
+- [7z Format](/formats/7z)

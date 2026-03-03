@@ -1,0 +1,433 @@
+---
+title: Hash Command (h)
+description: Calculate hash values and checksums for files
+---
+
+The `h` (hash) command calculates cryptographic hash values and checksums for files without archiving them.
+
+## Syntax
+
+```bash
+7z h [<switches>...] [<file_names>...] [@listfile]
+```
+
+## Description
+
+The hash command:
+- Calculates checksums for file verification
+- Supports multiple hash algorithms
+- Can process multiple files and directories
+- Generates hashes without compression
+- Useful for integrity verification
+- Can output in various formats
+
+## Supported Hash Algorithms
+
+7-Zip supports several hash functions:
+
+<CardGroup cols={2}>
+  <Card title="CRC32" icon="hashtag">
+    32-bit cyclic redundancy check
+    - Fast computation
+    - Good for error detection
+    - 8 character hex output
+  </Card>
+  <Card title="CRC64" icon="hashtag">
+    64-bit cyclic redundancy check
+    - Better collision resistance than CRC32
+    - 16 character hex output
+  </Card>
+  <Card title="SHA256" icon="shield">
+    256-bit secure hash
+    - Cryptographically secure
+    - Industry standard
+    - 64 character hex output
+  </Card>
+  <Card title="SHA1" icon="shield">
+    160-bit secure hash (deprecated)
+    - Older standard
+    - Not recommended for security
+    - 40 character hex output
+  </Card>
+</CardGroup>
+
+Additional algorithms (version dependent):
+- **BLAKE2sp** - Fast cryptographic hash
+- **XXH64** - Extremely fast non-cryptographic hash
+
+## Common Options
+
+<ParamField path="file_names" type="string">
+  Files or directories to hash. Supports wildcards.
+  
+  **Example:** `*.txt` or `documents/`
+</ParamField>
+
+<ParamField path="-scrc{Method}" type="string">
+  Set hash function to use. Options:
+  - `CRC32` - 32-bit CRC (default)
+  - `CRC64` - 64-bit CRC
+  - `SHA256` - SHA-256 hash
+  - `SHA1` - SHA-1 hash
+  - `XXH64` - xxHash 64-bit
+  - `BLAKE2SP` - BLAKE2sp hash
+  - `*` - All available methods
+  
+  **Example:** `-scrcSHA256`
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories.
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include files matching pattern.
+  
+  **Example:** `-i!*.txt`
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files by pattern.
+  
+  **Example:** `-x!*.tmp`
+</ParamField>
+
+<ParamField path="-snh" type="flag">
+  Store hard links as links.
+</ParamField>
+
+<ParamField path="-snl" type="flag">
+  Store symbolic links as links.
+</ParamField>
+
+## Examples
+
+### Calculate CRC32 for a file
+```bash
+7z h file.txt
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Scanning the drive:
+1 file, 1234 bytes (2 KiB)
+
+Calculating checksums for 1 file, 1234 bytes (2 KiB)
+
+CRC32  for data:              12345678
+CRC32  for data and names:    87654321
+```
+
+### Calculate SHA256 hash
+```bash
+7z h -scrcSHA256 file.txt
+```
+**Output:**
+```
+SHA256 for data:              a1b2c3d4e5f6... (64 chars)
+SHA256 for data and names:    f6e5d4c3b2a1... (64 chars)
+```
+
+### Calculate multiple hash types
+```bash
+7z h -scrc* file.txt
+```
+**Output:**
+```
+CRC32  for data:              12345678
+CRC64  for data:              123456789ABCDEF0
+SHA256 for data:              a1b2c3d4e5f6...
+SHA1   for data:              9876543210abcdef...
+```
+
+### Hash all files in directory
+```bash
+7z h -r documents/
+```
+
+### Hash with specific algorithm
+```bash
+7z h -scrcSHA1 *.pdf
+```
+
+### Hash excluding certain files
+```bash
+7z h -r files/ -x!*.tmp -x!*.bak
+```
+
+### Hash and redirect to file
+```bash
+7z h -scrcSHA256 -r . > checksums.txt
+```
+
+## Understanding Hash Output
+
+### Data Hash
+```
+SHA256 for data:              a1b2c3d4e5f6...
+```
+Hash of file contents only.
+
+### Data and Names Hash
+```
+SHA256 for data and names:    f6e5d4c3b2a1...
+```
+Hash of file contents combined with file paths.
+
+### Multiple Files
+```
+Scanning the drive:
+3 folders, 12 files, 45678 bytes (45 KiB)
+
+Calculating checksums for 12 files, 45678 bytes (45 KiB)
+
+CRC32  for data:              ABCD1234
+CRC32  for data and names:    1234ABCD
+```
+
+## Use Cases
+
+### File Integrity Verification
+
+#### Create checksum file
+```bash
+7z h -scrcSHA256 -r /important/data > checksums.txt
+```
+
+#### Verify later
+```bash
+7z h -scrcSHA256 -r /important/data > checksums_new.txt
+diff checksums.txt checksums_new.txt
+```
+
+### Download Verification
+```bash
+# Calculate hash of downloaded file
+7z h -scrcSHA256 download.iso
+
+# Compare with published hash
+echo "Expected: a1b2c3d4..."
+```
+
+### Duplicate Detection
+```bash
+#!/bin/bash
+# Find files with same hash
+
+find . -type f -print0 | while IFS= read -r -d '' file; do
+    hash=$(7z h -scrcSHA256 "$file" 2>/dev/null | grep "SHA256 for data:" | awk '{print $4}')
+    echo "$hash  $file"
+done | sort | uniq -w64 -D
+```
+
+### Generate Checksums for Distribution
+```bash
+#!/bin/bash
+# Create checksum file for release
+
+RELEASE="myapp-1.0"
+OUTPUT="${RELEASE}-SHA256SUMS.txt"
+
+echo "$RELEASE Checksums" > "$OUTPUT"
+echo "Generated: $(date)" >> "$OUTPUT"
+echo "" >> "$OUTPUT"
+
+7z h -scrcSHA256 -r "$RELEASE/" | grep "SHA256 for data:" >> "$OUTPUT"
+```
+
+## Advanced Examples
+
+### Hash with multiple algorithms
+```bash
+7z h -scrcCRC32 -scrcSHA256 file.bin
+```
+
+### Recursive hash with pattern
+```bash
+7z h -scrcSHA256 -r -i!*.iso
+```
+
+### Hash and sort by filename
+```bash
+7z h -scrcSHA256 -r . | grep "for data:" | sort
+```
+
+### Compare directory trees
+```bash
+# Hash directory 1
+7z h -scrcSHA256 -r dir1/ > dir1_hashes.txt
+
+# Hash directory 2  
+7z h -scrcSHA256 -r dir2/ > dir2_hashes.txt
+
+# Compare
+diff dir1_hashes.txt dir2_hashes.txt
+```
+
+### Verify archive contents without extraction
+```bash
+# Extract to pipe and hash
+7z x -so archive.7z file.bin | 7z h -si
+```
+
+## Scripting Examples
+
+### Create and Verify Checksums
+```bash
+#!/bin/bash
+# Create SHA256 checksums for all files
+
+DIR="$1"
+CHECKSUM_FILE="checksums.sha256"
+
+if [ -z "$DIR" ]; then
+    echo "Usage: $0 <directory>"
+    exit 1
+fi
+
+echo "Creating checksums for $DIR"
+cd "$DIR" || exit 1
+
+find . -type f | while read -r file; do
+    hash=$(7z h -scrcSHA256 "$file" 2>/dev/null | grep "SHA256 for data:" | awk '{print $4}')
+    echo "$hash  $file"
+done > "$CHECKSUM_FILE"
+
+echo "Checksums saved to $CHECKSUM_FILE"
+```
+
+### Monitor File Changes
+```bash
+#!/bin/bash
+# Monitor directory for file changes using hashes
+
+DIR="/important/data"
+HASH_FILE="/tmp/dir_hashes.txt"
+
+while true; do
+    CURRENT_HASH=$(7z h -scrcSHA256 -r "$DIR" | grep "for data:" | awk '{print $4}')
+    
+    if [ -f "$HASH_FILE" ]; then
+        PREVIOUS_HASH=$(cat "$HASH_FILE")
+        if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
+            echo "[$(date)] Directory changed!"
+            # Send alert here
+        fi
+    fi
+    
+    echo "$CURRENT_HASH" > "$HASH_FILE"
+    sleep 60
+done
+```
+
+### Batch File Verification
+```bash
+#!/bin/bash
+# Verify multiple files against known hashes
+
+KNOWN_HASHES="known_hashes.txt"
+
+while IFS= read -r line; do
+    expected_hash=$(echo "$line" | awk '{print $1}')
+    filename=$(echo "$line" | awk '{print $2}')
+    
+    if [ -f "$filename" ]; then
+        actual_hash=$(7z h -scrcSHA256 "$filename" | grep "SHA256 for data:" | awk '{print $4}')
+        
+        if [ "$expected_hash" = "$actual_hash" ]; then
+            echo "✓ $filename"
+        else
+            echo "✗ $filename (hash mismatch)"
+        fi
+    else
+        echo "✗ $filename (not found)"
+    fi
+done < "$KNOWN_HASHES"
+```
+
+## Hash Algorithm Comparison
+
+| Algorithm | Speed | Security | Output Size | Use Case |
+|-----------|-------|----------|-------------|----------|
+| CRC32 | Fastest | None | 8 chars | Error detection |
+| CRC64 | Very Fast | None | 16 chars | Error detection |
+| XXH64 | Very Fast | None | 16 chars | Fast checksums |
+| SHA1 | Fast | Weak | 40 chars | Legacy compatibility |
+| SHA256 | Medium | Strong | 64 chars | Security, verification |
+| BLAKE2SP | Fast | Strong | 64 chars | Modern alternative |
+
+### When to Use Each
+
+**CRC32/CRC64** - Quick integrity checks, non-security use
+```bash
+7z h -scrcCRC32 file.zip
+```
+
+**SHA256** - File verification, security, distribution
+```bash
+7z h -scrcSHA256 important.bin
+```
+
+**Multiple Hashes** - Maximum verification
+```bash
+7z h -scrc* critical_file.exe
+```
+
+## Performance Tips
+
+1. **CRC is fastest** - Use CRC32/CRC64 for speed
+2. **SHA256 for security** - Use when cryptographic security needed
+3. **Batch processing** - Hash multiple files in one command
+4. **Exclude unnecessary files** - Use `-x` to skip temp files
+5. **Pipe for single file** - Direct file to stdin for single hash
+
+<Note>
+  The "data and names" hash includes file paths in the calculation, making it useful for verifying both content and directory structure.
+</Note>
+
+<Tip>
+  For ISO verification, use SHA256:
+  ```bash
+  7z h -scrcSHA256 ubuntu.iso
+  ```
+  Compare output with published hash from official source.
+</Tip>
+
+<Warning>
+  SHA1 is considered cryptographically broken. Use SHA256 or BLAKE2SP for security-critical applications.
+</Warning>
+
+## Integration Examples
+
+### With MD5SUM format (conversion)
+```bash
+# Convert 7z hash output to md5sum-like format
+7z h -scrcSHA256 -r . | grep "SHA256 for data:" | 
+    awk '{print $4 "  " $6}' > SHA256SUMS
+```
+
+### Verify Against Published Hashes
+```bash
+#!/bin/bash
+FILE="download.iso"
+EXPECTED="a1b2c3d4e5f6789..."
+
+ACTUAL=$(7z h -scrcSHA256 "$FILE" | grep "SHA256 for data:" | awk '{print $4}')
+
+if [ "$ACTUAL" = "$EXPECTED" ]; then
+    echo "✓ Hash verified"
+    exit 0
+else
+    echo "✗ Hash mismatch!"
+    echo "Expected: $EXPECTED"
+    echo "Got:      $ACTUAL"
+    exit 1
+fi
+```
+
+## Related Commands
+
+- [Test Command (t)](/commands/test) - Test archive integrity
+- [Benchmark Command (b)](/commands/benchmark) - Performance testing
+- [Extract Command (x, e)](/commands/extract) - Extract and verify files

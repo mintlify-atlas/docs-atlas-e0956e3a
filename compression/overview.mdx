@@ -1,0 +1,164 @@
+---
+title: Compression Methods Overview
+description: Overview of compression methods supported by 7-Zip
+---
+
+7-Zip supports multiple compression methods, each optimized for different types of data and use cases. The compression method is identified by a unique binary ID in the archive format.
+
+## Supported Methods
+
+7-Zip supports the following primary compression methods:
+
+<CardGroup cols={2}>
+  <Card title="LZMA" icon="compress" href="/compression/lzma">
+    Original LZMA algorithm with excellent compression ratio
+  </Card>
+  <Card title="LZMA2" icon="layer-group" href="/compression/lzma2">
+    Improved LZMA with multithreading and better handling of incompressible data
+  </Card>
+  <Card title="PPMd" icon="brain" href="/compression/ppmd">
+    Prediction by Partial Matching for highly compressible text
+  </Card>
+  <Card title="BZip2" icon="file-zipper" href="/compression/bzip2">
+    Block-sorting compression with good ratio and speed
+  </Card>
+  <Card title="Deflate" icon="wind" href="/compression/deflate">
+    Standard ZIP compression method
+  </Card>
+</CardGroup>
+
+## Method IDs
+
+Each compression method in 7z archives is associated with a unique binary ID:
+
+| Method | ID (Hex) | Full ID |
+|--------|----------|----------|
+| Copy | `00` | `00` |
+| LZMA2 | `21` | `21` |
+| LZMA | `030101` | `03 01 01` |
+| PPMd | `030401` | `03 04 01` |
+| BZip2 | `040202` | `04 02 02` |
+| Deflate | `040108` | `04 01 08` |
+| Deflate64 | `040109` | `04 01 09` |
+
+<Info>
+The method ID is stored in the archive's coder information and determines which decompression algorithm to use when extracting files.
+</Info>
+
+## Filter Methods
+
+In addition to compression methods, 7-Zip supports filter methods that preprocess data before compression:
+
+| Filter | ID (Hex) | Description |
+|--------|----------|-------------|
+| Delta | `03` | Delta filter for better compression of multimedia |
+| BCJ (x86) | `04` | x86 executable filter |
+| BCJ2 (x86) | `0301031B` | Advanced x86 filter with 4 streams |
+| ARM | `07` | ARM little-endian filter |
+| ARM64 | `0A` | ARM64 filter |
+| ARMT | `08` | ARM Thumb filter |
+| IA64 | `06` | Intel Itanium filter |
+| PPC | `05` | PowerPC big-endian filter |
+| SPARC | `09` | SPARC filter |
+| RISCV | `0B` | RISC-V filter |
+
+## Choosing a Compression Method
+
+<Accordion title="When to use LZMA2">
+  **Best for:** Most use cases, especially with modern multi-core CPUs
+  
+  - Default method in 7z format
+  - Supports multithreading
+  - Better handling of incompressible data than LZMA
+  - Excellent compression ratio
+  - Dictionary size up to 1.5 GB (64-bit)
+</Accordion>
+
+<Accordion title="When to use LZMA">
+  **Best for:** Maximum compatibility, single-threaded compression
+  
+  - Original LZMA algorithm
+  - Used in .lzma files and older 7z archives
+  - Slightly better compression than LZMA2 in some cases
+  - Single-threaded only
+  - Dictionary size up to 1.5 GB (64-bit)
+</Accordion>
+
+<Accordion title="When to use PPMd">
+  **Best for:** Highly compressible text files, databases, source code
+  
+  - Excellent for text and structured data
+  - High memory usage
+  - Slower than LZMA/LZMA2
+  - Best compression for text files
+  - Memory size: 1 MB to 2 GB
+</Accordion>
+
+<Accordion title="When to use BZip2">
+  **Best for:** Compatibility with other tools, balanced performance
+  
+  - Standard BZip2 algorithm
+  - Good compression ratio
+  - Moderate speed
+  - Lower memory usage than LZMA
+  - Block size: 100 KB to 900 KB
+</Accordion>
+
+<Accordion title="When to use Deflate">
+  **Best for:** ZIP compatibility, fast decompression
+  
+  - Standard ZIP compression
+  - Fastest decompression
+  - Lower compression ratio than LZMA
+  - Widely compatible
+  - Used in ZIP, gzip, PNG formats
+</Accordion>
+
+## Performance Comparison
+
+<Note>
+Performance varies significantly based on data type, compression level, and hardware. The following table shows typical characteristics:
+</Note>
+
+| Method | Compression Ratio | Compression Speed | Decompression Speed | Memory Usage |
+|--------|------------------|-------------------|---------------------|---------------|
+| LZMA2 | Excellent (9/10) | Slow (3/10) | Medium (6/10) | High |
+| LZMA | Excellent (9/10) | Slow (3/10) | Medium (6/10) | High |
+| PPMd | Excellent (10/10) | Very Slow (2/10) | Slow (4/10) | Very High |
+| BZip2 | Good (7/10) | Medium (5/10) | Medium (6/10) | Medium |
+| Deflate | Fair (5/10) | Fast (7/10) | Very Fast (9/10) | Low |
+
+<Tip>
+For general-purpose compression, use LZMA2 with default settings. For text files, try PPMd with a high memory setting. For maximum compatibility, use Deflate.
+</Tip>
+
+## Custom Method IDs
+
+If you need to add a custom compression method, you can:
+
+1. **Request ID allocation** from 7-Zip developers
+2. **Generate a random 8-byte ID** with the format: `3F ZZ ZZ ZZ ZZ ZZ MM MM`
+   - `3F`: Prefix for random IDs (1 byte)
+   - `ZZ ZZ ZZ ZZ ZZ`: Developer ID (5 random bytes)
+   - `MM MM`: Method ID (2 bytes)
+
+<Warning>
+Only use a new method ID if the old codec cannot decode data encoded with the new version. Maintain backward compatibility whenever possible.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="LZMA Compression" icon="file-archive" href="/compression/lzma">
+    Learn about the LZMA compression algorithm
+  </Card>
+  <Card title="LZMA2 Compression" icon="layer-group" href="/compression/lzma2">
+    Explore the improved LZMA2 method
+  </Card>
+  <Card title="PPMd Compression" icon="brain" href="/compression/ppmd">
+    Discover PPMd for text compression
+  </Card>
+  <Card title="Command Line Usage" icon="terminal" href="/cli/compression">
+    Use compression methods in 7-Zip commands
+  </Card>
+</CardGroup>

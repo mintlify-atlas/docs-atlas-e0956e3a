@@ -1,122 +1,117 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "7-Zip",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2196F3",
+    "light": "#64B5F6",
+    "dark": "#1976D2"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/ip7z/7zip"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/ip7z/7zip"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Command Reference",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "commands/overview",
+              "commands/add",
+              "commands/extract",
+              "commands/list",
+              "commands/test",
+              "commands/update",
+              "commands/delete",
+              "commands/benchmark",
+              "commands/hash"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Compression Methods",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "compression/overview",
+              "compression/lzma",
+              "compression/lzma2",
+              "compression/ppmd",
+              "compression/bzip2",
+              "compression/deflate"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Archive Formats",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "formats/overview",
+              "formats/7z",
+              "formats/zip",
+              "formats/tar",
+              "formats/gzip",
+              "formats/bzip2",
+              "formats/xz",
+              "formats/wim",
+              "formats/iso"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "advanced/switches",
+              "advanced/encryption",
+              "advanced/solid-archives",
+              "advanced/self-extracting",
+              "advanced/filters"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Development",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Building from Source",
             "pages": [
-              "api-reference/introduction"
+              "dev/building",
+              "dev/windows",
+              "dev/linux",
+              "dev/macos"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "SDK & Integration",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "dev/sdk-overview",
+              "dev/lzma-sdk",
+              "dev/7z-format",
+              "dev/dlls"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "dev/contributing",
+              "dev/license"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

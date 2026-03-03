@@ -1,0 +1,531 @@
+---
+title: LZMA SDK
+description: Use the LZMA compression library in your C/C++ applications
+---
+
+The LZMA SDK is a public domain compression library that provides the LZMA algorithm used in 7-Zip.
+
+## Overview
+
+LZMA SDK features:
+
+- **License**: Public domain (no restrictions)
+- **Languages**: C, C++, C#, Java
+- **Algorithms**: LZMA, LZMA2
+- **Size**: ~50 KB compiled
+- **Speed**: Very fast decompression
+- **Ratio**: Excellent compression
+
+<Note>
+LZMA SDK is written and placed in the public domain by Igor Pavlov. You can use it freely without any restrictions.
+</Note>
+
+## Download
+
+The LZMA SDK is available at:
+- [7-zip.org/sdk.html](https://7-zip.org/sdk.html)
+- Included in 7-Zip source: `C/` directory
+
+## Core Files
+
+### LZMA Encoder
+
+| File | Description | Size |
+|------|-------------|-----|
+| `LzmaEnc.h` | Encoder interface | 80 lines |
+| `LzmaEnc.c` | Encoder implementation | 2400+ lines |
+| `LzFind.h` | Match finder interface | 120 lines |
+| `LzFind.c` | Match finder | 1200+ lines |
+
+### LZMA Decoder
+
+| File | Description | Size |
+|------|-------------|-----|
+| `LzmaDec.h` | Decoder interface | 240 lines |
+| `LzmaDec.c` | Decoder implementation | 1100+ lines |
+
+### Common Files
+
+| File | Description |
+|------|-------------|
+| `7zTypes.h` | Type definitions |
+| `7zAlloc.h` | Memory allocation |
+| `LzHash.h` | Hash functions |
+| `Compiler.h` | Compiler-specific macros |
+
+## LZMA Encoder API
+
+### Encoder Properties
+
+From `LzmaEnc.h` (lines 20-34):
+
+```c
+typedef struct
+{
+  UInt32 level;          /* 0 <= level <= 9 */
+  UInt32 dictSize;       /* (1 << 12) <= dictSize <= (1 << 27) for 32-bit
+                            (1 << 12) <= dictSize <= (3 << 29) for 64-bit */
+  int lc;                /* 0 <= lc <= 8, default = 3 */
+  int lp;                /* 0 <= lp <= 4, default = 0 */
+  int pb;                /* 0 <= pb <= 4, default = 2 */
+  int algo;              /* 0 - fast, 1 - normal, default = 1 */
+  int fb;                /* 5 <= fb <= 273, default = 32 */
+  int btMode;            /* 0 - hashChain Mode, 1 - binTree mode - normal, default = 1 */
+  int numHashBytes;      /* 2, 3 or 4, default = 4 */
+  UInt32 mc;             /* 1 <= mc <= (1 << 30), default = 32 */
+  unsigned writeEndMark; /* 0 - do not write EOPM, 1 - write EOPM, default = 0 */
+  int numThreads;        /* 1 or 2, default = 2 */
+} CLzmaEncProps;
+```
+
+### Initialization
+
+```c
+#include "LzmaEnc.h"
+
+CLzmaEncProps props;
+LzmaEncProps_Init(&props);
+
+// Set compression level (0-9)
+props.level = 9;
+
+// Set dictionary size (16 MB)
+props.dictSize = 1 << 24;
+
+// Normalize properties
+LzmaEncProps_Normalize(&props);
+```
+
+### Compression Example
+
+```c
+#include "LzmaEnc.h"
+#include "Alloc.h"
+
+// Allocator
+ISzAlloc g_Alloc = { SzAlloc, SzFree };
+
+// Create encoder
+CLzmaEncHandle enc = LzmaEnc_Create(&g_Alloc);
+
+// Set properties
+CLzmaEncProps props;
+LzmaEncProps_Init(&props);
+props.level = 5;
+props.dictSize = 1 << 24; // 16MB
+
+SRes res = LzmaEnc_SetProps(enc, &props);
+
+// Write properties (5 bytes)
+unsigned char propsEncoded[LZMA_PROPS_SIZE];
+SizeT propsSize = LZMA_PROPS_SIZE;
+LzmaEnc_WriteProperties(enc, propsEncoded, &propsSize);
+
+// Compress
+res = LzmaEnc_Encode(enc, outStream, inStream, 
+                     NULL, &g_Alloc, &g_Alloc);
+
+// Cleanup
+LzmaEnc_Destroy(enc, &g_Alloc, &g_Alloc);
+```
+
+## LZMA Decoder API
+
+### Decoder State
+
+From `LzmaDec.h` (lines 70-85):
+
+```c
+typedef struct
+{
+  CLzmaProps prop;
+  Byte *dic;
+  SizeT dicPos;
+  SizeT dicBufSize;
+  const Byte *buf;
+  UInt32 range;
+  UInt32 code;
+  UInt32 processedPos;
+  UInt32 checkDicSize;
+  UInt32 reps[4];
+  UInt32 state;
+  UInt32 remainLen;
+  // ... more fields
+} CLzmaDec;
+```
+
+### Decompression Example
+
+```c
+#include "LzmaDec.h"
+
+// Decode properties from header
+unsigned char propsEncoded[LZMA_PROPS_SIZE];
+CLzmaProps props;
+SRes res = LzmaProps_Decode(&props, propsEncoded, LZMA_PROPS_SIZE);
+
+// Create decoder
+CLzmaDec dec;
+LzmaDec_Construct(&dec);
+
+// Allocate decoder memory
+res = LzmaDec_Allocate(&dec, &props, &g_Alloc);
+
+// Initialize decoder
+LzmaDec_Init(&dec);
+
+// Decompress
+SizeT destLen = outputSize;
+SizeT srcLen = compressedSize;
+ELzmaFinishMode finishMode = LZMA_FINISH_END;
+ELzmaStatus status;
+
+res = LzmaDec_DecodeToBuf(&dec, 
+                          destBuf, &destLen,
+                          srcBuf, &srcLen,
+                          finishMode, &status);
+
+// Cleanup
+LzmaDec_Free(&dec, &g_Alloc);
+```
+
+## Simplified API
+
+### LzmaLib - Single Function Interface
+
+From `LzmaLib.h`:
+
+```c
+#include "LzmaLib.h"
+
+// Compress
+int LzmaCompress(
+    unsigned char *dest,   // Output buffer
+    size_t *destLen,       // Output size
+    const unsigned char *src,  // Input buffer
+    size_t srcLen,         // Input size
+    unsigned char *outProps, // Props (5 bytes)
+    size_t *outPropsSize,  // Props size
+    int level,             // 0-9
+    unsigned dictSize,     // Dictionary size
+    int lc, int lp, int pb, // LZMA parameters
+    int fb,                // Fast bytes
+    int numThreads         // Threads (1-2)
+);
+
+// Decompress
+int LzmaUncompress(
+    unsigned char *dest,   // Output buffer
+    size_t *destLen,       // Output size
+    const unsigned char *src,  // Input buffer
+    size_t *srcLen,        // Input size
+    const unsigned char *props, // Props (5 bytes)
+    size_t propsSize       // Props size (5)
+);
+```
+
+### Simple Compression Example
+
+```c
+#include "LzmaLib.h"
+
+unsigned char inBuf[100000];
+unsigned char outBuf[110000];
+size_t outLen = sizeof(outBuf) - LZMA_PROPS_SIZE;
+
+unsigned char outProps[LZMA_PROPS_SIZE];
+size_t outPropsSize = LZMA_PROPS_SIZE;
+
+int res = LzmaCompress(
+    outBuf + LZMA_PROPS_SIZE, &outLen,
+    inBuf, sizeof(inBuf),
+    outProps, &outPropsSize,
+    5,              // level
+    1 << 24,        // dictSize (16 MB)
+    3, 0, 2,        // lc, lp, pb
+    32,             // fb
+    2               // numThreads
+);
+
+if (res == SZ_OK) {
+    // Copy props to start of outBuf
+    memcpy(outBuf, outProps, LZMA_PROPS_SIZE);
+    printf("Compressed: %zu bytes\n", outLen + LZMA_PROPS_SIZE);
+}
+```
+
+### Simple Decompression Example
+
+```c
+#include "LzmaLib.h"
+
+unsigned char inBuf[110000];  // Compressed data with props
+unsigned char outBuf[100000];
+size_t outLen = sizeof(outBuf);
+size_t inLen = compressedSize - LZMA_PROPS_SIZE;
+
+int res = LzmaUncompress(
+    outBuf, &outLen,
+    inBuf + LZMA_PROPS_SIZE, &inLen,
+    inBuf,  // props at start
+    LZMA_PROPS_SIZE
+);
+
+if (res == SZ_OK) {
+    printf("Decompressed: %zu bytes\n", outLen);
+}
+```
+
+## LZMA2 API
+
+### LZMA2 Encoder
+
+```c
+#include "Lzma2Enc.h"
+
+CLzma2EncHandle enc = Lzma2Enc_Create(&g_Alloc, &g_Alloc);
+
+CLzma2EncProps props;
+Lzma2EncProps_Init(&props);
+props.lzmaProps.level = 9;
+props.lzmaProps.dictSize = 1 << 24;
+props.numTotalThreads = 4;  // Multi-threading
+
+Lzma2Enc_SetProps(enc, &props);
+Lzma2Enc_Encode(enc, outStream, inStream, NULL);
+
+Lzma2Enc_Destroy(enc);
+```
+
+### LZMA2 Decoder
+
+```c
+#include "Lzma2Dec.h"
+
+CLzma2Dec dec;
+Lzma2Dec_Construct(&dec);
+
+unsigned char prop = lzma2Properties;
+Lzma2Dec_Allocate(&dec, prop, &g_Alloc);
+Lzma2Dec_Init(&dec);
+
+SizeT destLen = outputSize;
+SizeT srcLen = compressedSize;
+ELzmaFinishMode finishMode = LZMA_FINISH_END;
+ELzmaStatus status;
+
+Lzma2Dec_DecodeToBuf(&dec, dest, &destLen, src, &srcLen, finishMode, &status);
+
+Lzma2Dec_Free(&dec, &g_Alloc);
+```
+
+## Memory Allocation
+
+### Custom Allocator
+
+```c
+// From 7zTypes.h
+typedef struct ISzAlloc
+{
+  void *(*Alloc)(ISzAllocPtr p, size_t size);
+  void (*Free)(ISzAllocPtr p, void *address);
+} ISzAlloc;
+
+// Example implementation
+void *MyAlloc(ISzAllocPtr p, size_t size)
+{
+  return malloc(size);
+}
+
+void MyFree(ISzAllocPtr p, void *address)
+{
+  free(address);
+}
+
+ISzAlloc myAlloc = { MyAlloc, MyFree };
+```
+
+### Default Allocators
+
+From `Alloc.c`:
+
+```c
+#include "Alloc.h"
+
+// Standard malloc/free
+ISzAlloc g_Alloc = { SzAlloc, SzFree };
+
+// Large pages (Windows)
+ISzAlloc g_BigAlloc = { SzBigAlloc, SzBigFree };
+
+// Mid-size allocator
+ISzAlloc g_MidAlloc = { SzMidAlloc, SzMidFree };
+```
+
+## Compression Parameters
+
+### Dictionary Size
+
+```c
+// Common dictionary sizes
+props.dictSize = 1 << 16;  // 64 KB
+props.dictSize = 1 << 20;  // 1 MB
+props.dictSize = 1 << 24;  // 16 MB
+props.dictSize = 1 << 26;  // 64 MB
+props.dictSize = 1 << 27;  // 128 MB (32-bit max)
+props.dictSize = 3 << 29;  // 1.5 GB (64-bit max)
+```
+
+### Literal Context Bits (lc)
+
+- Default: `3`
+- Range: `0-8`
+- Higher = better compression for text, more memory
+
+### Literal Position Bits (lp)
+
+- Default: `0`
+- Range: `0-4`
+- For aligned data (executables): `2`
+
+### Position Bits (pb)
+
+- Default: `2`
+- Range: `0-4`
+- For aligned data: `2`
+
+### Fast Bytes (fb)
+
+- Default: `32`
+- Range: `5-273`
+- Higher = better compression, slower encoding
+- Recommended: `64` or `273` for maximum compression
+
+## Error Codes
+
+From `7zTypes.h`:
+
+```c
+#define SZ_OK 0
+#define SZ_ERROR_DATA 1
+#define SZ_ERROR_MEM 2
+#define SZ_ERROR_CRC 3
+#define SZ_ERROR_UNSUPPORTED 4
+#define SZ_ERROR_PARAM 5
+#define SZ_ERROR_INPUT_EOF 6
+#define SZ_ERROR_OUTPUT_EOF 7
+#define SZ_ERROR_READ 8
+#define SZ_ERROR_WRITE 9
+#define SZ_ERROR_PROGRESS 10
+#define SZ_ERROR_FAIL 11
+#define SZ_ERROR_THREAD 12
+```
+
+## Building LZMA SDK
+
+### Makefile Targets
+
+```bash
+# Build LZMA utility
+cd C/Util/Lzma
+make -f makefile.gcc
+
+# Build static library
+cd C
+gcc -c -O2 *.c
+ar rcs liblzma.a *.o
+
+# Build shared library
+gcc -shared -O2 *.c -o liblzma.so
+```
+
+### CMake Example
+
+```cmake
+add_library(lzma STATIC
+    LzmaEnc.c
+    LzmaDec.c
+    LzFind.c
+    Alloc.c
+    LzmaLib.c
+)
+
+target_include_directories(lzma PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+```
+
+## Performance Tips
+
+<Tip>
+**Optimize compression speed**:
+
+1. **Reduce dictionary size** - Use 16 MB instead of 64 MB
+2. **Lower level** - Use level 5 instead of 9
+3. **Reduce fb** - Use 32 instead of 273
+4. **Enable threading** - Set `numThreads = 2`
+</Tip>
+
+<Tip>
+**Optimize compression ratio**:
+
+1. **Maximum dictionary** - 64 MB (32-bit) or 1.5 GB (64-bit)
+2. **Maximum level** - level = 9
+3. **Maximum fb** - fb = 273
+4. **Binary tree mode** - btMode = 1
+</Tip>
+
+## Integration Examples
+
+### Compress File
+
+```c
+#include <stdio.h>
+#include "LzmaLib.h"
+
+int CompressFile(const char *inFile, const char *outFile)
+{
+    FILE *in = fopen(inFile, "rb");
+    FILE *out = fopen(outFile, "wb");
+    
+    // Read input
+    fseek(in, 0, SEEK_END);
+    size_t inSize = ftell(in);
+    fseek(in, 0, SEEK_SET);
+    
+    unsigned char *inBuf = malloc(inSize);
+    fread(inBuf, 1, inSize, in);
+    fclose(in);
+    
+    // Compress
+    size_t outSize = inSize + inSize / 3 + 128;
+    unsigned char *outBuf = malloc(outSize);
+    
+    unsigned char outProps[LZMA_PROPS_SIZE];
+    size_t outPropsSize = LZMA_PROPS_SIZE;
+    
+    int res = LzmaCompress(
+        outBuf + LZMA_PROPS_SIZE, &outSize,
+        inBuf, inSize,
+        outProps, &outPropsSize,
+        5, 1 << 24, 3, 0, 2, 32, 2
+    );
+    
+    if (res == SZ_OK) {
+        // Write props + data
+        fwrite(outProps, 1, LZMA_PROPS_SIZE, out);
+        fwrite(outBuf + LZMA_PROPS_SIZE, 1, outSize, out);
+    }
+    
+    fclose(out);
+    free(inBuf);
+    free(outBuf);
+    
+    return res;
+}
+```
+
+## See Also
+
+- [SDK Overview](/dev/sdk-overview)
+- [7z Format Specification](/dev/7z-format)
+- [DLL Integration](/dev/dlls)
+- [LZMA Compression Method](/compression/lzma)

@@ -1,0 +1,414 @@
+---
+title: LZMA2 Compression
+description: LZMA2 compression method with multithreading support and improved performance
+---
+
+LZMA2 is an improved version of LZMA that provides better multithreading support, improved handling of incompressible data, and enhanced performance. It is the default compression method in 7z archives.
+
+## Method ID
+
+**ID:** `21` (hex)
+
+The LZMA2 method is identified by the single-byte value `21` in 7z archive format.
+
+## Overview
+
+LZMA2 improves upon LZMA with:
+- Full multithreading support (multiple cores)
+- Better handling of incompressible data
+- Ability to store uncompressed chunks
+- Support for resetting compression state
+- Smaller overhead for small compressed chunks
+
+<Info>
+LZMA2 is the default and recommended compression method for 7z archives. It provides the best balance of compression ratio, speed, and multithreading efficiency.
+</Info>
+
+## Key Improvements Over LZMA
+
+<Accordion title="Multithreading Support">
+  LZMA2 divides data into independent chunks that can be compressed in parallel:
+  
+  - LZMA: Limited to 2 threads (match finding only)
+  - LZMA2: Supports unlimited threads (full parallel compression)
+  
+  ```c
+  // From Lzma2Enc.c:29-30
+  #define LZMA2_UNPACK_SIZE_MAX (1 << 21)  // 2 MB chunks
+  #define LZMA2_PACK_SIZE_MAX (1 << 16)     // 64 KB packed chunks
+  ```
+  
+  <Tip>
+  On a quad-core CPU, LZMA2 can be 3-4x faster than LZMA for compression while maintaining similar compression ratios.
+  </Tip>
+</Accordion>
+
+<Accordion title="Incompressible Data Handling">
+  LZMA2 can detect incompressible data and store it uncompressed:
+  
+  ```c
+  // Control byte values (Lzma2Enc.c:18-21)
+  #define LZMA2_CONTROL_LZMA (1 << 7)           // Compressed chunk
+  #define LZMA2_CONTROL_COPY_NO_RESET 2         // Uncompressed, no reset
+  #define LZMA2_CONTROL_COPY_RESET_DIC 1        // Uncompressed, reset dict
+  #define LZMA2_CONTROL_EOF 0                   // End of stream
+  ```
+  
+  This prevents expansion of incompressible data (like JPEG, MP3, etc.)
+</Accordion>
+
+<Accordion title="Dictionary Reset">
+  LZMA2 can reset the dictionary between chunks:
+  
+  - Allows better parallel decompression
+  - Reduces memory usage for random access
+  - Enables streaming compression
+  
+  <Note>
+  Dictionary reset slightly reduces compression ratio but enables important features like multithreading and random access.
+  </Note>
+</Accordion>
+
+<Accordion title="Smaller Property Overhead">
+  LZMA2 properties are encoded more efficiently:
+  
+  - LZMA: 5-byte header per stream
+  - LZMA2: 1-byte properties + control bytes per chunk
+  
+  ```c
+  // Dictionary size encoding (Lzma2Enc.c:25)
+  #define LZMA2_DIC_SIZE_FROM_PROP(p) (((UInt32)2 | ((p) & 1)) << ((p) / 2 + 11))
+  ```
+</Accordion>
+
+## Compression Parameters
+
+LZMA2 uses the same base parameters as LZMA, wrapped in `CLzma2EncProps`:
+
+<Accordion title="LZMA2 Properties Structure">
+  ```c
+  typedef struct {
+    CLzmaEncProps lzmaProps;  // All LZMA parameters
+    unsigned blockSize;        // 0 means use default
+    int numBlockThreads;       // Number of block threads
+    int numTotalThreads;       // Total number of threads
+  } CLzma2EncProps;
+  ```
+  
+  **Block Size:**
+  - Default: Calculated based on dictionary size
+  - Range: Up to `LZMA2_UNPACK_SIZE_MAX` (2 MB)
+  - Smaller blocks = better multithreading, slightly lower ratio
+  
+  **Thread Configuration:**
+  - `numBlockThreads`: Threads per block (1-2)
+  - `numTotalThreads`: Total parallel blocks
+  - Total threads = `numBlockThreads * numTotalThreads`
+</Accordion>
+
+<Accordion title="Dictionary Size">
+  **Range:** `(1 << 12)` to `(1 << 30)` (1.5 GB for 64-bit)  
+  **Default:** Based on compression level
+  
+  Same as LZMA, but LZMA2 properties byte encodes it differently:
+  
+  | Prop | Dict Size |
+  |------|----------|
+  | 40 | 2 GB |
+  | 39 | 1.5 GB |
+  | 38 | 1 GB |
+  | 37 | 768 MB |
+  | 36 | 512 MB |
+  | 35 | 384 MB |
+  | 34 | 256 MB |
+  | ... | ... |
+  | 28 | 16 MB |
+  
+  <Tip>
+  The formula is: `dictSize = (2 | (p & 1)) << ((p / 2) + 11)`
+  </Tip>
+</Accordion>
+
+<Accordion title="lc, lp, pb Constraints">
+  **LZMA2 Restriction:** `lc + lp <= LZMA2_LCLP_MAX` (4)
+  
+  ```c
+  // From Lzma2Enc.c:23
+  #define LZMA2_LCLP_MAX 4
+  ```
+  
+  This is stricter than LZMA to ensure efficient encoding. Default values (lc=3, lp=0) satisfy this constraint.
+  
+  <Warning>
+  LZMA2 will return an error if `lc + lp > 4`. Always verify your parameters before encoding.
+  </Warning>
+</Accordion>
+
+## Memory Requirements
+
+### Encoding
+
+Memory per thread:
+```
+Memory = (dictSize * 11.5 + 6 MB) + state_size
+```
+
+Total memory for multithreading:
+```
+Total = Memory_per_thread * numTotalThreads
+```
+
+<Info>
+**Example:** Level 5 (16 MB dict) with 4 threads:
+- Per thread: ~190 MB
+- Total: ~760 MB
+
+**Example:** Level 9 (256 MB dict) with 4 threads:
+- Per thread: ~2.9 GB
+- Total: ~11.6 GB
+</Info>
+
+### Decoding
+
+Memory for decompression:
+```
+Memory = dictSize + state_size + chunk_buffer
+```
+
+- Much lower than encoding
+- Single-threaded decompression
+- Chunk buffer: Up to 2 MB
+
+<Tip>
+Decompression is always single-threaded and requires minimal memory compared to compression.
+</Tip>
+
+## Stream Format
+
+Each LZMA2 stream consists of chunks with control bytes:
+
+```
+Chunk format:
+  Control byte (1 byte):
+    Bits 7-6: Chunk type
+      00 = EOF
+      01 = Uncompressed, reset dictionary
+      10 = Uncompressed, no reset
+      11 = LZMA compressed
+    Bits 5-0: Additional size/property info
+  
+  [Unpack size] (1-2 bytes, if not EOF)
+  [Pack size] (1-2 bytes, if compressed)
+  [LZMA properties] (1 byte, first LZMA chunk or property change)
+  [Chunk data] (pack size bytes)
+```
+
+## API Usage
+
+### Encoding
+
+```c
+#include "Lzma2Enc.h"
+
+// Initialize properties
+CLzma2EncProps props;
+Lzma2EncProps_Init(&props);
+
+// Configure LZMA parameters
+props.lzmaProps.level = 5;
+props.lzmaProps.dictSize = 1 << 24;  // 16 MB
+
+// Configure threading
+props.numTotalThreads = 4;  // Use 4 threads
+props.blockSize = 0;        // Auto-calculate
+
+// Create encoder
+CLzma2EncHandle enc = Lzma2Enc_Create(&g_Alloc, &g_AllocBig);
+if (enc == 0)
+  return SZ_ERROR_MEM;
+
+// Set properties
+SRes res = Lzma2Enc_SetProps(enc, &props);
+
+// Write properties to archive (1 byte)
+Byte prop = Lzma2Enc_WriteProperties(enc);
+WriteByte(outStream, prop);
+
+// Encode
+res = Lzma2Enc_Encode2(enc, &outStream, NULL, NULL,
+  &inStream, NULL, 0, NULL);
+
+// Destroy encoder
+Lzma2Enc_Destroy(enc);
+```
+
+### Decoding
+
+```c
+#include "Lzma2Dec.h"
+
+// Read LZMA2 property byte
+Byte prop;
+ReadByte(inStream, &prop);
+
+// Allocate decoder
+CLzma2Dec state;
+Lzma2Dec_Construct(&state);
+res = Lzma2Dec_Allocate(&state, prop, &g_Alloc);
+
+// Initialize decoder
+Lzma2Dec_Init(&state);
+
+// Decode
+for (;;) {
+  int res = Lzma2Dec_DecodeToBuf(&state, dest, &destLen,
+    src, &srcLen, finishMode);
+  if (res != SZ_OK)
+    break;
+}
+
+// Free decoder
+Lzma2Dec_Free(&state, &g_Alloc);
+```
+
+## Performance Characteristics
+
+<Note>
+Typical performance on modern hardware (Intel Core i7 quad-core, 3.5 GHz):
+
+**Compression (4 threads):**
+- Level 5: ~8-12 MB/s (4x speedup)
+- Level 9: ~4-6 MB/s (3-4x speedup)
+
+**Compression (1 thread):**
+- Similar to LZMA: ~2-3 MB/s (level 5)
+
+**Decompression:**
+- ~20-40 MB/s (single-threaded)
+- Same as LZMA
+
+**Compression ratio:**
+- Nearly identical to LZMA
+- 0-2% larger due to chunk overhead
+- Better than LZMA for incompressible data
+</Note>
+
+## Multithreading Efficiency
+
+| Threads | Speedup | Efficiency |
+|---------|---------|------------|
+| 1 | 1.0x | 100% |
+| 2 | 1.8x | 90% |
+| 4 | 3.2x | 80% |
+| 8 | 5.5x | 69% |
+| 16 | 9.0x | 56% |
+
+<Info>
+Efficiency decreases with more threads due to:
+- Chunk synchronization overhead
+- Dictionary reset between chunks
+- Memory bandwidth limitations
+</Info>
+
+## Command Line Usage
+
+```bash
+# Compress with LZMA2 (default method)
+7z a archive.7z file.txt
+
+# Explicitly specify LZMA2
+7z a -m0=LZMA2 archive.7z file.txt
+
+# Set compression level
+7z a -mx=9 archive.7z file.txt
+
+# Set dictionary size (64 MB)
+7z a -md=64m archive.7z file.txt
+
+# Configure threading (4 threads)
+7z a -mmt=4 archive.7z file.txt
+
+# Disable multithreading
+7z a -mmt=1 archive.7z file.txt
+
+# Maximum compression with 8 threads
+7z a -mx=9 -md=128m -mfb=64 -mmt=8 archive.7z folder/
+```
+
+<Tip>
+For best compression ratio, use: `7z a -mx=9 -md=128m -mfb=273 file.7z source/`
+
+For best speed with good ratio: `7z a -mx=5 -mmt=4 file.7z source/`
+</Tip>
+
+## LZMA vs LZMA2 Comparison
+
+| Feature | LZMA | LZMA2 |
+|---------|------|-------|
+| Method ID | 03 01 01 | 21 |
+| Multithreading | Limited (2 threads) | Full (unlimited) |
+| Incompressible data | Can expand | Stores uncompressed |
+| Dictionary reset | No | Yes |
+| Random access | No | Possible |
+| Compression ratio | Excellent | Excellent (0-2% larger) |
+| Encoding speed | 2-3 MB/s | 8-12 MB/s (4 threads) |
+| Decoding speed | 20-40 MB/s | 20-40 MB/s |
+| Memory (compress) | High | High * threads |
+| Memory (decompress) | Medium | Medium |
+| File format | .lzma, .7z | .7z, .xz |
+| Streaming | Yes | Yes |
+
+<Warning>
+LZMA2 compressed data cannot be decompressed by LZMA decoders. Always use LZMA2-compatible decoders for LZMA2 streams.
+</Warning>
+
+## Best Practices
+
+<Accordion title="Choosing Thread Count">
+  **Recommended thread count:**
+  - Desktop PC: Number of CPU cores
+  - Server: Half of CPU cores (leave resources for other tasks)
+  - Low memory: Reduce threads to fit memory budget
+  
+  ```bash
+  # Auto-detect (uses all cores)
+  7z a -mmt archive.7z files/
+  
+  # Manual setting
+  7z a -mmt=4 archive.7z files/
+  ```
+</Accordion>
+
+<Accordion title="Dictionary Size Selection">
+  **General rule:** Dictionary should be 4-16x the size of typical files
+  
+  - Small files (< 1 MB): 1-4 MB dictionary
+  - Medium files (1-10 MB): 16-64 MB dictionary
+  - Large files (> 10 MB): 64-256 MB dictionary
+  - Huge files (> 100 MB): 256 MB - 1.5 GB dictionary
+  
+  <Tip>
+  Larger dictionaries don't always improve compression. Test with your data to find the optimal size.
+  </Tip>
+</Accordion>
+
+<Accordion title="Memory Budget Management">
+  Calculate required memory before compression:
+  
+  ```
+  Memory = (dictSize * 12 + 6 MB) * threads
+  ```
+  
+  Example configurations:
+  - 4 GB RAM: -md=32m -mmt=2
+  - 8 GB RAM: -md=64m -mmt=2 or -md=32m -mmt=4
+  - 16 GB RAM: -md=128m -mmt=2 or -md=64m -mmt=4
+  - 32 GB RAM: -md=256m -mmt=2 or -md=128m -mmt=4
+</Accordion>
+
+## See Also
+
+- [LZMA Compression](/compression/lzma) - Original single-threaded version
+- [Compression Methods Overview](/compression/overview) - Compare all methods
+- [PPMd Compression](/compression/ppmd) - Alternative for text files
+- Source files: `C/Lzma2Enc.c`, `C/Lzma2Enc.h`, `C/Lzma2Dec.c`, `C/Lzma2Dec.h`

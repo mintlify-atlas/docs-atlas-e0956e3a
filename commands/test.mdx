@@ -1,0 +1,402 @@
+---
+title: Test Command (t)
+description: Test integrity of archives without extraction
+---
+
+The `t` (test) command verifies the integrity of archives by checking checksums and attempting decompression without writing files to disk.
+
+## Syntax
+
+```bash
+7z t [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Description
+
+The test command:
+- Verifies archive structure and headers
+- Checks CRC checksums for all files
+- Tests decompression without extracting to disk
+- Detects corruption, errors, or incomplete archives
+- Works with encrypted archives (requires password)
+- Can test specific files or entire archives
+
+## Common Options
+
+<ParamField path="archive_name" type="string" required>
+  Name of the archive to test. Auto-detects archive type.
+</ParamField>
+
+<ParamField path="file_names" type="string">
+  Specific files or patterns to test. If omitted, tests all files.
+  
+  **Example:** `*.txt` or `documents/report.pdf`
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Provide password for encrypted archives.
+  
+  **Example:** `-pMyPassword` or `-p` (prompts)
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories (enabled by default).
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files from testing by pattern.
+  
+  **Example:** `-x!*.tmp`
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include only files matching pattern.
+  
+  **Example:** `-i!*.txt`
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Specify archive type (usually auto-detected).
+  
+  **Example:** `-t7z`
+</ParamField>
+
+<ParamField path="-scrc{Method}" type="string">
+  Set hash function for testing: CRC32, CRC64, SHA256, SHA1, etc.
+  
+  **Example:** `-scrcSHA256`
+</ParamField>
+
+<ParamField path="-bd" type="flag">
+  Disable progress indicator.
+</ParamField>
+
+<ParamField path="-bb{0-3}" type="number">
+  Set output log level (0=quiet, 1=errors, 2=errors+warnings, 3=verbose).
+</ParamField>
+
+## Examples
+
+### Test entire archive
+```bash
+7z t archive.7z
+```
+**Output (success):**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Scanning the drive for archives:
+1 file, 23456 bytes (23 KiB)
+
+Testing archive: archive.7z
+
+--
+Path = archive.7z
+Type = 7z
+Physical Size = 23456
+Headers Size = 234
+Method = LZMA2:24
+Solid = -
+Blocks = 1
+
+Everything is Ok
+
+Folders: 3
+Files: 12
+Size:       45678
+Compressed: 23456
+```
+
+**Output (failure):**
+```
+Testing archive: corrupted.7z
+
+--
+Path = corrupted.7z
+Type = 7z
+
+ERROR: Data Error : document.txt
+
+Sub items Errors: 1
+
+Archives with Errors: 1
+```
+
+### Test password-protected archive
+```bash
+7z t -p archive.7z
+```
+**Prompts:**
+```
+Enter password (will not be echoed):
+```
+
+Or provide password directly:
+```bash
+7z t -pMyPassword archive.7z
+```
+
+### Test specific files
+```bash
+7z t archive.7z readme.txt license.txt
+```
+
+### Test files by pattern
+```bash
+7z t archive.7z *.txt -r
+```
+
+### Test excluding certain files
+```bash
+7z t archive.7z -x!*.tmp -x!*.bak
+```
+
+### Test quietly (exit code only)
+```bash
+7z t archive.7z -bd -bb0
+echo $?  # 0 = success, non-zero = failure
+```
+
+### Test with verbose output
+```bash
+7z t archive.7z -bb3
+```
+
+### Test multi-volume archive
+```bash
+7z t archive.7z.001
+```
+Automatically tests all volumes.
+
+### Test multiple archives
+```bash
+7z t *.7z
+```
+
+### Test with SHA256 checksums
+```bash
+7z t archive.7z -scrcSHA256
+```
+
+## Exit Codes
+
+The test command returns exit codes that indicate test results:
+
+| Code | Meaning | Description |
+|------|---------|-------------|
+| 0 | Success | Archive is OK, no errors |
+| 1 | Warning | Non-fatal errors (some files may be OK) |
+| 2 | Fatal Error | Archive is corrupted or unreadable |
+| 7 | Command Line Error | Invalid command syntax |
+| 8 | Not Enough Memory | Insufficient memory to test |
+| 255 | User Stopped | User interrupted the process |
+
+## Testing Strategies
+
+### Quick Test Script
+```bash
+if 7z t archive.7z -bd > /dev/null 2>&1; then
+    echo "Archive is OK"
+else
+    echo "Archive is corrupted (exit code: $?)"
+fi
+```
+
+### Test All Archives in Directory
+```bash
+for archive in *.7z; do
+    echo "Testing $archive..."
+    if 7z t "$archive" -bd -bb0; then
+        echo "✓ $archive is OK"
+    else
+        echo "✗ $archive is CORRUPTED"
+    fi
+done
+```
+
+### Test and Log Results
+```bash
+7z t archive.7z > test_results.log 2>&1
+if [ $? -eq 0 ]; then
+    echo "Test passed" >> test_results.log
+else
+    echo "Test failed" >> test_results.log
+fi
+```
+
+### Test Before Extraction
+```bash
+7z t archive.7z && 7z x archive.7z -o./output
+```
+Only extracts if test succeeds.
+
+## Advanced Examples
+
+### Test with progress to file
+```bash
+7z t archive.7z -bsp1 2> progress.log
+```
+
+### Test and capture errors
+```bash
+7z t archive.7z 2>&1 | grep -i error
+```
+
+### Parallel testing of multiple archives
+```bash
+find . -name "*.7z" -print0 | xargs -0 -P 4 -I {} sh -c '7z t "{}" -bd && echo "{}" OK'
+```
+
+### Test archive chain
+```bash
+for i in {1..10}; do
+    if ! 7z t archive.7z.00$i -bd -bb0; then
+        echo "Volume $i is corrupted"
+        break
+    fi
+done
+```
+
+## Understanding Test Results
+
+### Successful Test
+```
+Everything is Ok
+
+Folders: 3
+Files: 12
+Size:       45678
+Compressed: 23456
+```
+All files passed CRC check and decompression.
+
+### CRC Error
+```
+ERROR: CRC Failed : document.txt
+```
+File's checksum doesn't match. File is corrupted.
+
+### Data Error
+```
+ERROR: Data Error : archive.txt
+```
+Decompression failed. Archive data is corrupted.
+
+### Headers Error
+```
+ERROR: Headers Error
+```
+Archive structure is damaged.
+
+### Wrong Password
+```
+ERROR: Wrong password : encrypted.txt
+```
+Incorrect password provided for encrypted archive.
+
+### Unsupported Method
+```
+ERROR: Unsupported Method
+```
+Archive uses compression method not supported by this 7-Zip build.
+
+## Testing Different Archive Types
+
+### Test ZIP archive
+```bash
+7z t archive.zip
+```
+
+### Test RAR archive
+```bash
+7z t archive.rar
+```
+
+### Test TAR.GZ archive
+```bash
+7z t archive.tar.gz
+```
+
+### Test ISO image
+```bash
+7z t image.iso
+```
+
+### Test self-extracting archive
+```bash
+7z t archive.exe
+```
+
+### Test split archive
+```bash
+7z t archive.zip.001
+```
+
+## Automated Testing
+
+### Cron Job for Regular Testing
+```bash
+#!/bin/bash
+# /etc/cron.daily/test-archives
+
+ARCHIVE_DIR="/backup/archives"
+LOG_FILE="/var/log/archive-tests.log"
+
+date >> "$LOG_FILE"
+find "$ARCHIVE_DIR" -name "*.7z" | while read archive; do
+    if 7z t "$archive" -bd -bb0 >> "$LOG_FILE" 2>&1; then
+        echo "OK: $archive" >> "$LOG_FILE"
+    else
+        echo "FAIL: $archive" >> "$LOG_FILE"
+        # Send alert
+        echo "Archive test failed: $archive" | mail -s "Archive Test Failure" admin@example.com
+    fi
+done
+```
+
+### Test with Timeout
+```bash
+timeout 300 7z t large_archive.7z
+if [ $? -eq 124 ]; then
+    echo "Test timed out after 5 minutes"
+fi
+```
+
+### Test and Compare Checksums
+```bash
+# Test with CRC32
+7z t archive.7z -scrcCRC32 > /tmp/crc32.txt
+# Test with SHA256
+7z t archive.7z -scrcSHA256 > /tmp/sha256.txt
+# Compare results
+diff /tmp/crc32.txt /tmp/sha256.txt
+```
+
+<Note>
+  The test command reads and decompresses files but does not write them to disk, making it safe to run on any archive without worrying about disk space or file conflicts.
+</Note>
+
+<Warning>
+  A successful test does not guarantee that files will extract properly in all cases. It only verifies CRC checksums and basic decompression. Physical media errors during extraction could still occur.
+</Warning>
+
+<Tip>
+  Always test archives after creating them, especially before deleting source files:
+  ```bash
+  7z a archive.7z files/ && 7z t archive.7z && rm -rf files/
+  ```
+</Tip>
+
+## Performance Considerations
+
+- Testing is faster than extraction (no disk writes)
+- Solid archives must decompress sequentially (slower)
+- Multi-volume archives test faster with all volumes present
+- Encrypted archives require full decompression (slower)
+- Password-protected headers require password even for testing
+
+## Related Commands
+
+- [Extract Command (x, e)](/commands/extract) - Extract files from archive
+- [List Command (l)](/commands/list) - View archive contents
+- [Hash Command (h)](/commands/hash) - Calculate file checksums

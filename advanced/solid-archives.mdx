@@ -1,0 +1,291 @@
+---
+title: Solid archives
+description: Achieve maximum compression ratios with solid archive mode
+---
+
+Solid archiving is a compression method that treats all files as a single continuous data stream, achieving significantly better compression ratios.
+
+## What are Solid Archives?
+
+In a **solid archive**, files are compressed together as one continuous block:
+
+- All files are treated as a single data stream
+- Compression dictionary is shared across files
+- Similar data patterns across files are efficiently compressed
+- Maximum compression ratio is achieved
+
+### Solid vs Non-Solid
+
+| Feature | Solid Archive | Non-Solid Archive |
+|---------|--------------|------------------|
+| Compression ratio | Excellent (10-50% better) | Good |
+| Random access | Slower | Fast |
+| Update speed | Slower | Fast |
+| Memory usage | Higher | Lower |
+| Best for | Backups, distribution | Frequent updates |
+
+## Creating Solid Archives
+
+```bash
+# Enable solid mode
+7z a -ms=on archive.7z files/
+
+# With maximum compression
+7z a -ms=on -mx=9 archive.7z files/
+```
+
+<Info>
+Solid mode is **enabled by default** for 7z archives. Use `-ms=off` to disable it.
+</Info>
+
+## Solid Block Size
+
+You can control the solid block size for better balance between compression and access speed:
+
+```bash
+# 1MB solid blocks
+7z a -ms=1m archive.7z files/
+
+# 16MB solid blocks
+7z a -ms=16m archive.7z files/
+
+# 1GB solid blocks (maximum compression)
+7z a -ms=1g archive.7z files/
+
+# Unlimited (all files in one block)
+7z a -ms=on archive.7z files/
+```
+
+### Choosing Block Size
+
+<Tabs>
+  <Tab title="Small blocks (1-16 MB)">
+    **Best for**: Archives with frequent random access
+    
+    ```bash
+    7z a -ms=16m archive.7z files/
+    ```
+    
+    - Faster extraction of individual files
+    - Lower memory usage
+    - Slightly worse compression
+  </Tab>
+  
+  <Tab title="Medium blocks (64-512 MB)">
+    **Best for**: Balanced compression and access
+    
+    ```bash
+    7z a -ms=512m archive.7z files/
+    ```
+    
+    - Good compression ratio
+    - Reasonable extraction speed
+    - Moderate memory usage
+  </Tab>
+  
+  <Tab title="Large blocks (1GB+)">
+    **Best for**: Maximum compression, infrequent access
+    
+    ```bash
+    7z a -ms=on archive.7z files/
+    ```
+    
+    - Maximum compression ratio
+    - Slower individual file extraction
+    - Higher memory usage
+  </Tab>
+</Tabs>
+
+## Compression Example
+
+### Non-Solid Archive
+
+```bash
+# Compress files individually
+7z a -ms=off archive.7z files/
+```
+
+Each file is compressed independently:
+- `file1.txt` → LZMA → compressed block 1
+- `file2.txt` → LZMA → compressed block 2
+- `file3.txt` → LZMA → compressed block 3
+
+### Solid Archive
+
+```bash
+# Compress all files together
+7z a -ms=on archive.7z files/
+```
+
+All files compressed as one stream:
+- `file1.txt` + `file2.txt` + `file3.txt` → LZMA → compressed block
+
+<Note>
+**Compression improvement example**:
+
+- 1000 text files (1 KB each) = 1 MB total
+- Non-solid: ~400 KB (40% compression)
+- Solid: ~100 KB (90% compression)
+
+The improvement comes from sharing the compression dictionary across similar files.
+</Note>
+
+## Memory Requirements
+
+Solid compression requires more memory:
+
+### Compression Memory
+
+```
+Memory = DictionarySize × (10 to 20)
+```
+
+Example with 64 MB dictionary:
+- Non-solid: ~100 MB
+- Solid: ~1.2 GB
+
+### Decompression Memory
+
+```
+Memory = DictionarySize + SolidBlockSize
+```
+
+Example:
+- Dictionary: 64 MB
+- Solid block: 512 MB
+- Required memory: ~576 MB
+
+## Extraction Performance
+
+### Extracting Single File
+
+**Non-solid**:
+```bash
+# Fast - only decompress one file
+7z x archive.7z specific-file.txt
+```
+
+**Solid**:
+```bash
+# Slower - must decompress all files before the target
+7z x archive.7z specific-file.txt
+```
+
+### Extracting All Files
+
+**Both solid and non-solid** have similar performance when extracting all files:
+
+```bash
+# Extract everything
+7z x archive.7z
+```
+
+## Solid Archive Organization
+
+### By File Type
+
+Organize files by type for better compression:
+
+```bash
+# Group similar files
+7z a -ms=on archive.7z *.txt *.log *.xml *.json
+```
+
+### By Extension
+
+Use solid groups to compress similar files together:
+
+```bash
+# Solid blocks per extension
+7z a -ms=e archive.7z files/
+```
+
+This creates separate solid blocks for each file extension.
+
+### Custom Sorting
+
+```bash
+# Sort by extension then name
+7z a -ms=on archive.7z -stl files/
+```
+
+## Solid Archives with Filters
+
+Combine solid compression with BCJ filters for executables:
+
+```bash
+# Solid archive with x86 filter
+7z a -ms=on -mf=BCJ archive.7z *.exe *.dll
+```
+
+This provides excellent compression for collections of similar executables.
+
+## Best Practices
+
+<Tip>
+**Use solid archives for**:
+- Backup archives
+- Software distribution
+- Large collections of similar files
+- Long-term storage
+- Maximum compression priority
+</Tip>
+
+<Warning>
+**Avoid solid archives for**:
+- Frequently updated archives
+- Archives needing random access
+- Low-memory systems
+- Incremental backups
+</Warning>
+
+## Advanced Examples
+
+### Maximum Compression Backup
+
+```bash
+7z a -t7z -mx=9 -md=64m -mfb=273 -ms=on -mmt=on backup.7z /data/
+```
+
+### Partly-Solid Archive
+
+```bash
+# 512 KB solid blocks
+7z a -ms=512k -mx=9 archive.7z files/
+```
+
+Balances compression ratio and extraction speed.
+
+### Solid Archive with Header Encryption
+
+```bash
+7z a -ms=on -mhe=on -p archive.7z files/
+```
+
+Maximum compression with full encryption.
+
+## Implementation Details
+
+Solid compression in 7-Zip:
+
+- Implemented in `CPP/7zip/Archive/7z/7zHandler.cpp`
+- Solid block structure in `CPP/7zip/Archive/7z/7zFolderOutStream.cpp`
+- Memory management in `CPP/7zip/Common/`
+
+From `DOC/readme.txt` (lines 36-42):
+```
+If you have big number of files in archive, and you need fast extracting,
+you can use partly-solid archives:
+
+  7za.exe a archive.7z *.htm -ms=512K -r -mx -m0fb=255 -m0d=512K
+
+In that example 7-Zip will use 512KB solid blocks. So it needs to decompress
+only 512KB for extracting one file from such archive.
+```
+
+## See Also
+
+- [Compression Methods](/compression/overview)
+- [LZMA Compression](/compression/lzma)
+- [Add Command](/commands/add)
+- [Encryption](/advanced/encryption)

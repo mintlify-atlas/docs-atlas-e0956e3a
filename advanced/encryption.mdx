@@ -1,0 +1,251 @@
+---
+title: Encryption and password protection
+description: Secure your archives with AES-256 encryption and password protection
+---
+
+7-Zip provides strong encryption capabilities using AES-256 to protect sensitive data in archives.
+
+## Encryption Methods
+
+### 7z Format Encryption
+
+The 7z format uses **AES-256** encryption with **SHA-256** key derivation:
+
+- **Method ID**: `06 F1 07 01` (7zAES)
+- **Key derivation**: SHA-256 based
+- **Key length**: 256 bits
+- **Encryption**: AES-256 in CBC mode
+- **Authentication**: Encrypted headers with CRC
+
+```bash
+# Create encrypted 7z archive
+7z a -pMyPassword archive.7z files/
+```
+
+### ZIP Format Encryption
+
+ZIP archives support two encryption methods:
+
+1. **ZipCrypto** (legacy, weak)
+   - Traditional ZIP encryption
+   - Not recommended for sensitive data
+
+2. **AES-256** (recommended)
+   - Method ID: `04 01 63` (wzAES)
+   - AES encryption with HMAC-SHA1 authentication
+
+```bash
+# Create AES-256 encrypted ZIP
+7z a -tzip -mem=AES256 -pMyPassword archive.zip files/
+```
+
+<Warning>
+ZipCrypto is weak and can be cracked. Always use AES encryption for ZIP archives.
+</Warning>
+
+## Creating Encrypted Archives
+
+<Steps>
+  <Step title="Set a strong password">
+    Use the `-p` switch followed by your password:
+    
+    ```bash
+    7z a -pYourStrongPassword archive.7z files/
+    ```
+    
+    <Tip>
+    For interactive password prompt (more secure), use `-p` without a value:
+    
+    ```bash
+    7z a -p archive.7z files/
+    # 7-Zip will prompt for password
+    ```
+    </Tip>
+  </Step>
+  
+  <Step title="Encrypt file names (7z only)">
+    Use `-mhe=on` to encrypt file names in the archive headers:
+    
+    ```bash
+    7z a -p -mhe=on archive.7z files/
+    ```
+    
+    This prevents anyone from seeing file names without the password.
+  </Step>
+  
+  <Step title="Choose encryption method (ZIP)">
+    For ZIP archives, explicitly set AES-256:
+    
+    ```bash
+    7z a -tzip -mem=AES256 -p archive.zip files/
+    ```
+  </Step>
+</Steps>
+
+## Extracting Encrypted Archives
+
+```bash
+# Extract with password on command line
+7z x -pMyPassword archive.7z
+
+# Extract with interactive password prompt
+7z x -p archive.7z
+```
+
+## Password Requirements
+
+### Best Practices
+
+- **Minimum length**: 12+ characters
+- **Complexity**: Mix uppercase, lowercase, numbers, and symbols
+- **Avoid**: Dictionary words, personal information, common patterns
+
+### Password Strength Examples
+
+| Strength | Example | Crack Time |
+|----------|---------|------------|
+| Weak | `password123` | Seconds |
+| Medium | `MyP@ssw0rd` | Hours |
+| Strong | `X9$mK#pL2@vN` | Years |
+| Very Strong | `Tr!nk3t-F1$h-P@rr0t-Z3bra` | Centuries |
+
+## Header Encryption
+
+### 7z Archives
+
+Use `-mhe=on` to encrypt archive headers:
+
+```bash
+7z a -p -mhe=on archive.7z files/
+```
+
+**Benefits**:
+- File names are encrypted
+- File sizes are hidden
+- Directory structure is concealed
+- Cannot list contents without password
+
+**Without header encryption** (default):
+```bash
+# Anyone can list files (but not extract)
+7z l archive.7z
+```
+
+**With header encryption**:
+```bash
+# Password required even to list
+7z l -p archive.7z
+```
+
+<Warning>
+ZIP format does NOT support header encryption. File names are always visible.
+</Warning>
+
+## Encryption Performance
+
+AES-256 encryption has minimal performance impact:
+
+| Operation | Overhead |
+|-----------|----------|
+| Compression | ~2-5% slower |
+| Decompression | ~2-5% slower |
+| Memory usage | +32 KB |
+
+```bash
+# Maximum compression with encryption
+7z a -mx=9 -mhe=on -p archive.7z files/
+```
+
+## Advanced Encryption Options
+
+### Solid Archives with Encryption
+
+Combine solid compression with encryption for maximum security and compression:
+
+```bash
+7z a -ms=on -mhe=on -p -mx=9 archive.7z files/
+```
+
+### Multi-volume Encrypted Archives
+
+Split encrypted archives into volumes:
+
+```bash
+7z a -v100m -p -mhe=on archive.7z files/
+```
+
+### Self-Extracting Encrypted Archives
+
+Create encrypted SFX archives:
+
+```bash
+7z a -sfx -p -mhe=on archive.exe files/
+```
+
+## Security Considerations
+
+<Warning>
+**Password Security**
+
+- Passwords on command line may be visible in process lists
+- Use interactive prompt (`-p` without value) for sensitive operations
+- Command history may store passwords
+- Use password managers for strong, unique passwords
+</Warning>
+
+<Info>
+**AES-256 Security**
+
+AES-256 is considered unbreakable with current technology when used with a strong password. The weakest link is typically:
+
+1. **Weak passwords** - Use strong, random passwords
+2. **Password reuse** - Use unique passwords per archive
+3. **Social engineering** - Protect passwords from unauthorized access
+</Info>
+
+## Scripting with Encrypted Archives
+
+### Using Password Files
+
+```bash
+# Read password from file
+PASSWORD=$(cat password.txt)
+7z a -p"$PASSWORD" archive.7z files/
+```
+
+### Environment Variables
+
+```bash
+# Set password in environment (less secure)
+export ARCHIVE_PASSWORD="MyPassword"
+7z a -p"$ARCHIVE_PASSWORD" archive.7z files/
+```
+
+### Batch Processing
+
+```bash
+#!/bin/bash
+for dir in */; do
+    7z a -p -mhe=on "${dir%/}.7z" "$dir"
+done
+```
+
+## Encryption Implementation
+
+7-Zip's encryption is implemented in:
+
+- `C/Aes.c` - AES algorithm (lines 1-544)
+- `C/AesOpt.c` - Optimized AES with hardware acceleration
+- `C/Sha256.c` - SHA-256 for key derivation
+- `CPP/7zip/Crypto/7zAes.cpp` - 7z encryption wrapper
+- `CPP/7zip/Crypto/WzAes.cpp` - ZIP AES encryption
+
+<Tip>
+7-Zip uses hardware AES acceleration (AES-NI) when available, providing fast encryption with no measurable performance impact on modern CPUs.
+</Tip>
+
+## See Also
+
+- [Solid Archives](/advanced/solid-archives)
+- [Self-Extracting Archives](/advanced/self-extracting)
+- [Command Reference](/commands/overview)

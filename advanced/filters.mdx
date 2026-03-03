@@ -1,0 +1,312 @@
+---
+title: Filters and BCJ/BCJ2
+description: Improve compression of executables and specific data types with preprocessing filters
+---
+
+7-Zip filters are preprocessing algorithms that transform data before compression to achieve better compression ratios for specific file types.
+
+## What are Filters?
+
+Filters preprocess data to make it more compressible:
+
+1. **Filter** - Transform data (e.g., convert relative jumps in executables)
+2. **Compress** - Apply LZMA or other compression
+3. **Result** - Better compression ratio
+
+Filters are lossless and reversible transformations.
+
+## Available Filters
+
+### BCJ Filters (Branch-Call-Jump)
+
+Designed for executable files:
+
+| Filter | Method ID | Architecture | Files |
+|--------|-----------|-------------|-------|
+| **BCJ** | `04` | x86 (32-bit) | .exe, .dll, .sys |
+| **BCJ2** | `03 03 01 1B` | x86 (advanced) | .exe, .dll (better compression) |
+| **ARM** | `07` | ARM (little-endian) | ARM executables |
+| **ARMT** | `08` | ARM Thumb | ARM Thumb binaries |
+| **ARM64** | `0A` | ARM64 / AArch64 | 64-bit ARM |
+| **PPC** | `05` | PowerPC (big-endian) | PowerPC executables |
+| **IA64** | `06` | Itanium | IA-64 binaries |
+| **SPARC** | `09` | SPARC | SPARC binaries |
+| **RISCV** | `0B` | RISC-V | RISC-V executables |
+
+### Delta Filter
+
+**Method ID**: `03`
+
+For data with small numeric differences:
+
+- BMP images
+- WAV audio
+- Numeric data arrays
+- Database dumps
+
+## BCJ Filter (x86)
+
+### How BCJ Works
+
+Converts relative jumps and calls in x86 code to absolute addresses:
+
+**Original x86 code**:
+```asm
+E8 45 00 00 00    call +0x45 (relative)
+E9 10 00 00 00    jmp +0x10 (relative)
+```
+
+**After BCJ filter**:
+```asm
+E8 [absolute address]
+E9 [absolute address]
+```
+
+This makes similar code sections more compressible.
+
+### Using BCJ Filter
+
+```bash
+# Automatic - 7-Zip detects .exe/.dll files
+7z a archive.7z program.exe
+
+# Manual - force BCJ filter
+7z a -m0=BCJ -m1=LZMA archive.7z program.exe
+
+# With maximum compression
+7z a -m0=BCJ -m1=LZMA2:d=64m archive.7z *.exe *.dll
+```
+
+<Info>
+7-Zip **automatically applies BCJ** filter to .exe and .dll files when compressing to 7z format.
+</Info>
+
+### Compression Improvement
+
+Typical compression improvement with BCJ:
+
+| File Type | Without BCJ | With BCJ | Improvement |
+|-----------|-------------|----------|-------------|
+| .exe (native) | 45% | 35% | 22% better |
+| .dll (system) | 50% | 38% | 24% better |
+| .sys (driver) | 48% | 36% | 25% better |
+
+## BCJ2 Filter
+
+### Advanced x86 Filter
+
+BCJ2 is a more sophisticated filter that separates executable code into multiple streams:
+
+```bash
+# Use BCJ2 for maximum compression
+7z a -m0=BCJ2 -m1=LZMA2 archive.7z program.exe
+```
+
+**Four output streams**:
+1. Main data stream
+2. CALL/JMP targets
+3. JUMP targets
+4. Control bytes
+
+### BCJ vs BCJ2
+
+| Feature | BCJ | BCJ2 |
+|---------|-----|------|
+| Compression | Good | Better (2-5% more) |
+| Speed | Fast | Slower |
+| Complexity | Simple (1 stream) | Complex (4 streams) |
+| Streams | 1 | 4 |
+| Use case | General | Maximum compression |
+
+```bash
+# Compare compression
+
+# BCJ (faster)
+7z a -m0=BCJ -m1=LZMA2 -mx=9 bcj.7z program.exe
+
+# BCJ2 (smaller)
+7z a -m0=BCJ2 -m1=LZMA2 -mx=9 bcj2.7z program.exe
+```
+
+<Note>
+BCJ2 provides 2-5% better compression than BCJ but is slower to compress and decompress.
+</Note>
+
+## ARM Filters
+
+### ARM (Little-Endian)
+
+```bash
+# For ARM executables
+7z a -m0=ARM -m1=LZMA2 archive.7z arm_program
+```
+
+### ARM64 / AArch64
+
+```bash
+# For 64-bit ARM
+7z a -m0=ARM64 -m1=LZMA2 archive.7z aarch64_program
+```
+
+### ARMT (ARM Thumb)
+
+```bash
+# For ARM Thumb mode
+7z a -m0=ARMT -m1=LZMA2 archive.7z thumb_program
+```
+
+## Delta Filter
+
+For data with small differences between consecutive bytes:
+
+```bash
+# Delta filter for BMP images
+7z a -m0=Delta:1 -m1=LZMA2 archive.7z image.bmp
+
+# Delta filter for 16-bit WAV
+7z a -m0=Delta:2 -m1=LZMA2 archive.7z audio.wav
+
+# Delta filter for 32-bit data
+7z a -m0=Delta:4 -m1=LZMA2 archive.7z data.raw
+```
+
+**Delta parameter** specifies the distance between bytes to compute differences:
+- `1` - Adjacent bytes (8-bit images)
+- `2` - 16-bit values (stereo audio)
+- `4` - 32-bit values (RGB images, int arrays)
+
+### Delta Example
+
+**Original data**:
+```
+100, 102, 105, 107, 110, 112
+```
+
+**After Delta filter (distance=1)**:
+```
+100, 2, 3, 2, 3, 2
+```
+
+The transformed data compresses much better.
+
+## Filter Chains
+
+Combine multiple filters:
+
+```bash
+# BCJ + LZMA2 (common for executables)
+7z a -m0=BCJ -m1=LZMA2 archive.7z program.exe
+
+# Delta + LZMA2 (for images)
+7z a -m0=Delta:1 -m1=LZMA2 archive.7z image.bmp
+
+# BCJ2 + LZMA2 + LZMA2 + LZMA2 + LZMA2 (for 4 BCJ2 streams)
+7z a -m0=BCJ2 -m1=LZMA2 -m2=LZMA2 -m3=LZMA2 -m4=LZMA2 archive.7z program.exe
+```
+
+## Automatic Filter Selection
+
+7-Zip automatically selects filters based on file extension:
+
+| Extension | Filter Applied |
+|-----------|---------------|
+| .exe, .dll, .sys | BCJ (x86) |
+| .arm | ARM |
+| .bmp | Delta |
+| .wav | Delta |
+| (others) | None |
+
+```bash
+# Automatic - 7-Zip chooses filter
+7z a archive.7z *.exe *.dll *.bmp *.wav
+```
+
+## Filter Implementation
+
+Filter source code locations:
+
+- **BCJ**: `C/Bra86.c` (lines 1-124)
+- **BCJ2**: `C/Bcj2.c` (lines 1-274)
+- **ARM**: `C/Bra.c` (ARM filter section)
+- **ARM64**: `C/Bra.c` (ARM64 filter section)
+- **Delta**: `C/Delta.c` (lines 1-93)
+
+### BCJ Assembly Optimization
+
+Optimized versions with x86-64 assembly:
+
+- `Asm/x86/7zCrcOpt.asm` - CRC with BCJ preprocessing
+- Uses SIMD instructions for faster filtering
+
+## Performance Impact
+
+| Filter | Compression Speed | Decompression Speed | Compression Gain |
+|--------|------------------|--------------------|-----------------|
+| BCJ | -5% | -5% | +20-25% |
+| BCJ2 | -15% | -15% | +23-30% |
+| ARM | -5% | -5% | +20-25% |
+| Delta | -2% | -2% | +10-40% |
+
+<Tip>
+Filters have minimal speed impact but significant compression improvements for appropriate file types.
+</Tip>
+
+## Advanced Examples
+
+### Maximum Compression for Executables
+
+```bash
+7z a -t7z -m0=BCJ2 -m1=LZMA2:d=64m:fb=273 -m2=LZMA2:d=64m:fb=273 \
+  -m3=LZMA2:d=64m:fb=273 -m4=LZMA2:d=64m:fb=273 \
+  -mx=9 -ms=on -mmt=on archive.7z program.exe
+```
+
+### Solid Archive with Filters
+
+```bash
+# Multiple executables with BCJ
+7z a -ms=on -m0=BCJ -m1=LZMA2 archive.7z *.exe *.dll
+```
+
+### Cross-Platform Executables
+
+```bash
+# Archive with mixed architectures
+7z a archive.7z \
+  -m0=BCJ x86/*.exe \
+  -m0=ARM64 arm64/*.bin \
+  -m0=ARM arm/*.elf
+```
+
+## When to Use Filters
+
+<Tip>
+**Use filters for**:
+- Executable files (.exe, .dll, .so)
+- ARM/ARM64 binaries
+- BMP images
+- WAV audio files
+- Raw numeric data
+</Tip>
+
+<Warning>
+**Don't use filters for**:
+- Already compressed files (JPEG, PNG, MP3)
+- Encrypted data
+- Random data
+- Text files (no benefit)
+</Warning>
+
+## Disabling Automatic Filters
+
+```bash
+# Disable automatic filter selection
+7z a -m0=Copy -m1=LZMA2 archive.7z program.exe
+```
+
+## See Also
+
+- [Compression Methods](/compression/overview)
+- [LZMA Compression](/compression/lzma)
+- [Solid Archives](/advanced/solid-archives)
+- [Archive Formats](/formats/7z)

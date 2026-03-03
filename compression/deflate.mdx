@@ -1,0 +1,593 @@
+---
+title: Deflate Compression
+description: Deflate compression method used in ZIP archives with fast decompression
+---
+
+Deflate is a widely-used compression algorithm that combines LZ77 compression with Huffman coding. It is the standard compression method in ZIP archives and is used in many other formats including gzip and PNG.
+
+## Method ID
+
+**ID:** `04 01 08` (hex)
+
+The Deflate method is identified by the 3-byte sequence `04 01 08` in 7z archive format (ZIP method ID).
+
+**Deflate64 ID:** `04 01 09` (hex) - Enhanced version with larger window
+
+## Overview
+
+Deflate is one of the most widely-deployed compression algorithms:
+- Used in ZIP, gzip, PNG, HTTP compression, and many more
+- Fast decompression speed
+- Low memory requirements
+- Moderate compression ratio
+- Excellent compatibility across platforms and languages
+
+<Info>
+Deflate has been the standard ZIP compression method since the 1990s. Its wide compatibility and fast decompression make it ideal for web content, application data, and scenarios where decompression speed matters more than file size.
+</Info>
+
+## Algorithm Overview
+
+Deflate combines two compression techniques:
+
+<Accordion title="LZ77 Dictionary Compression">
+  The first stage uses LZ77 sliding window compression:
+  
+  - **Window size:** 32 KB (Deflate) or 64 KB (Deflate64)
+  - **Look-ahead buffer:** 258 bytes
+  - **Match finding:** Finds repeated sequences in the sliding window
+  - **Output:** Literals (uncompressed bytes) and length/distance pairs
+  
+  ```
+  Input:  "the quick brown fox jumps over the lazy dog"
+  Output: "the quick brown fox jumps over ", <length=4, distance=10>, "lazy dog"
+          (references "the " from earlier in the stream)
+  ```
+  
+  <Note>
+  The 32 KB window limit means Deflate cannot reference data more than 32 KB back, which limits compression ratio for files with long-range repetition.
+  </Note>
+</Accordion>
+
+<Accordion title="Huffman Coding">
+  The second stage applies Huffman coding to the LZ77 output:
+  
+  - **Dynamic Huffman trees:** Custom trees built for each block
+  - **Two trees:** One for literals/lengths, one for distances
+  - **Block types:** Stored (uncompressed), fixed Huffman, or dynamic Huffman
+  
+  Huffman coding assigns shorter bit codes to more frequent symbols:
+  
+  ```
+  Frequent symbol: 3 bits (e.g., space = 010)
+  Rare symbol:    12 bits (e.g., 'Z' = 111010110101)
+  ```
+  
+  <Tip>
+  Deflate automatically chooses between fixed and dynamic Huffman trees, selecting whichever gives better compression for each block.
+  </Tip>
+</Accordion>
+
+## Compression Levels
+
+Deflate supports 10 compression levels (0-9):
+
+| Level | Strategy | Speed | Compression | Use Case |
+|-------|----------|-------|-------------|----------|
+| 0 | Store only | Fastest | None | Already compressed data |
+| 1 | Fast | Very fast | Minimal | Quick compression |
+| 2-3 | Fast | Fast | Fair | Balanced speed/ratio |
+| 4-5 | Medium | Medium | Good | Default usage |
+| 6 | Default | Medium | Good | Standard (ZIP default) |
+| 7-8 | Slow | Slow | Better | Maximum compression |
+| 9 | Maximum | Slowest | Best | Archive distribution |
+
+<Accordion title="Level 0: Store Only">
+  No compression, data stored as-is:
+  
+  ```bash
+  # Store without compression
+  7z a -m0=Deflate -mx=0 archive.7z file.txt
+  ```
+  
+  Use for already-compressed data (JPEG, MP3, etc.) to avoid overhead.
+</Accordion>
+
+<Accordion title="Level 1-3: Fast Compression">
+  Quick compression with minimal processing:
+  
+  - Limited match searching
+  - Smaller hash tables
+  - Faster encoding
+  
+  ```bash
+  # Fast compression
+  7z a -m0=Deflate -mx=1 archive.7z folder/
+  ```
+  
+  <Tip>
+  Use for temporary files, network transmission, or when CPU time is more valuable than bandwidth.
+  </Tip>
+</Accordion>
+
+<Accordion title="Level 6: Default">
+  Standard ZIP compression level:
+  
+  - Good balance of speed and ratio
+  - Default for most ZIP tools
+  - Moderate memory usage
+  
+  ```bash
+  # Default Deflate (level 6)
+  7z a -m0=Deflate archive.7z file.txt
+  ```
+</Accordion>
+
+<Accordion title="Level 9: Maximum Compression">
+  Slowest but best compression:
+  
+  - Exhaustive match searching
+  - Larger hash tables
+  - More CPU time per byte
+  
+  ```bash
+  # Maximum Deflate compression
+  7z a -m0=Deflate -mx=9 archive.7z folder/
+  ```
+  
+  <Note>
+  Level 9 is 3-5x slower than level 6 but typically provides only 2-5% better compression. Use for archives that will be decompressed many times.
+  </Note>
+</Accordion>
+
+## Memory Requirements
+
+### Compression
+
+Deflate compression memory usage:
+
+```
+Memory ≈ 256 KB + (level_dependent_buffer)
+```
+
+| Level | Memory (Approximate) |
+|-------|---------------------|
+| 0 | < 1 KB |
+| 1 | ~8 KB |
+| 2-3 | ~16 KB |
+| 4-5 | ~32 KB |
+| 6 | ~128 KB |
+| 7-8 | ~256 KB |
+| 9 | ~512 KB |
+
+<Info>
+Deflate compression uses very little memory compared to LZMA (190+ MB) or BZip2 (10+ MB). This makes it ideal for embedded systems and mobile devices.
+</Info>
+
+### Decompression
+
+Deflate decompression memory usage:
+
+```
+Memory ≈ 32 KB (window) + 8 KB (overhead) ≈ 40 KB
+```
+
+<Tip>
+Decompression requires only ~40 KB regardless of compression level. This tiny memory footprint is why Deflate is used in firmware, bootloaders, and memory-constrained environments.
+</Tip>
+
+## Performance Characteristics
+
+<Note>
+Typical performance on modern hardware (Intel Core i7, 3.5 GHz):
+
+**Compression:**
+- Level 1: ~50-80 MB/s
+- Level 6: ~15-25 MB/s
+- Level 9: ~5-10 MB/s
+
+**Decompression:**
+- All levels: ~200-400 MB/s
+
+**Compression ratio:**
+- Text files: 25-40% of original size
+- Executable files: 40-60% of original size
+- Multimedia files: 95-100% of original size (minimal compression)
+
+Deflate decompression is 10-20x faster than compression and 5-10x faster than LZMA decompression.
+</Note>
+
+## Deflate vs Deflate64
+
+Deflate64 (Enhanced Deflate) is an improved version:
+
+| Feature | Deflate | Deflate64 |
+|---------|---------|----------|
+| Method ID | 04 01 08 | 04 01 09 |
+| Window Size | 32 KB | 64 KB |
+| Match Length | Up to 258 bytes | Up to 65,536 bytes |
+| Compression | Good | ~5-10% better |
+| Speed | Fast | Slightly slower |
+| Compatibility | Universal | Limited (requires Deflate64 decoder) |
+
+<Warning>
+Deflate64 support is limited:
+- Windows built-in ZIP: Yes
+- 7-Zip: Yes (decode only, does not encode)
+- WinZip: Yes
+- Info-ZIP unzip: No
+- Many Linux tools: No
+
+Use standard Deflate for maximum compatibility.
+</Warning>
+
+## Compression Ratio Comparison
+
+<Accordion title="Text Files (Source Code, Logs)">
+  | Method | Compression Ratio | Speed |
+  |--------|------------------|-------|
+  | PPMd | 100% (best) | Very Slow |
+  | LZMA2 | 110-120% | Slow |
+  | BZip2 | 120-130% | Medium |
+  | Deflate | 140-160% | Fast |
+  
+  Deflate provides fair compression with excellent speed.
+</Accordion>
+
+<Accordion title="Binary Executables">
+  | Method | Compression Ratio | Speed |
+  |--------|------------------|-------|
+  | LZMA2 + BCJ | 100% (best) | Slow |
+  | BZip2 | 130-150% | Medium |
+  | Deflate | 150-180% | Fast |
+  
+  For executables, LZMA2 significantly outperforms Deflate.
+</Accordion>
+
+<Accordion title="Web Content (HTML, CSS, JS)">
+  | Method | Compression Ratio | Use Case |
+  |--------|------------------|----------|
+  | Deflate (gzip) | 100% (standard) | HTTP compression |
+  | Brotli | 80-90% | Modern browsers |
+  
+  Deflate (as gzip) is the standard for web compression due to universal browser support.
+  
+  <Info>
+  HTTP servers typically use gzip (Deflate) at level 6 for on-the-fly compression. Pre-compressed static assets often use level 9 or Brotli.
+  </Info>
+</Accordion>
+
+## Command Line Usage
+
+```bash
+# Compress with Deflate (default level 6)
+7z a -m0=Deflate archive.7z file.txt
+
+# Compress with Deflate64
+7z a -m0=Deflate64 archive.7z file.txt
+
+# Set compression level (0-9)
+7z a -m0=Deflate -mx=9 archive.7z folder/
+
+# Fast compression (level 1)
+7z a -m0=Deflate -mx=1 archive.7z folder/
+
+# Store only (no compression)
+7z a -m0=Deflate -mx=0 archive.7z images/*.jpg
+
+# Create ZIP file with Deflate
+7z a -tzip archive.zip folder/
+
+# Maximum Deflate compression in ZIP
+7z a -tzip -mx=9 archive.zip folder/
+```
+
+<Tip>
+For ZIP files, 7-Zip automatically uses Deflate. Explicitly specifying it is only needed for 7z archives.
+</Tip>
+
+## Deflate File Formats
+
+Deflate is used in multiple file formats:
+
+<Accordion title="ZIP Archives">
+  Standard ZIP format with Deflate compression:
+  
+  ```bash
+  # Create ZIP with Deflate
+  7z a -tzip archive.zip folder/
+  
+  # Extract ZIP
+  7z x archive.zip
+  ```
+  
+  ZIP is the most compatible archive format worldwide.
+</Accordion>
+
+<Accordion title="Gzip (.gz)">
+  Single-file compression format:
+  
+  ```bash
+  # Create gzip file
+  7z a -tgzip file.txt.gz file.txt
+  
+  # Extract gzip file
+  7z x file.txt.gz
+  ```
+  
+  <Note>
+  Gzip can only compress one file. For multiple files, combine with tar: `tar.gz` or `.tgz`
+  </Note>
+</Accordion>
+
+<Accordion title="Tar.gz Archives">
+  Tar archive with gzip compression:
+  
+  ```bash
+  # Create tar.gz
+  7z a -ttar temp.tar folder/
+  7z a -tgzip archive.tar.gz temp.tar
+  
+  # Or in one step with tar command
+  tar -czf archive.tar.gz folder/
+  
+  # Extract with 7-Zip
+  7z x archive.tar.gz
+  7z x archive.tar
+  ```
+</Accordion>
+
+<Accordion title="PNG Images">
+  PNG uses Deflate for lossless image compression:
+  
+  ```
+  PNG format:
+    - Filters: Prepare image data for compression
+    - Deflate: Compress filtered data
+  ```
+  
+  PNG tools use Deflate levels 6-9 depending on optimization level.
+</Accordion>
+
+<Accordion title="HTTP Compression">
+  Web servers use gzip (Deflate) for content compression:
+  
+  ```http
+  Content-Encoding: gzip
+  ```
+  
+  Common level 6 for real-time compression, level 9 for static files.
+</Accordion>
+
+## Use Cases
+
+<Accordion title="When to Use Deflate">
+  Deflate is ideal for:
+  
+  - **ZIP compatibility:** Need to create standard ZIP archives
+  - **Fast decompression:** Application startup, web content delivery
+  - **Low memory:** Embedded systems, mobile devices, IoT
+  - **Web content:** HTTP compression, static assets
+  - **Cross-platform:** Maximum compatibility required
+  - **Real-time compression:** Network protocols, streaming
+  
+  ```bash
+  # Create compatible ZIP for sharing
+  7z a -tzip documents.zip *.pdf *.docx
+  
+  # Compress web assets
+  7z a -tgzip -mx=9 style.css.gz style.css
+  ```
+</Accordion>
+
+<Accordion title="When NOT to Use Deflate">
+  Avoid Deflate for:
+  
+  - **Maximum compression:** Use LZMA2 or PPMd instead
+  - **Large files with patterns:** LZMA2 handles better
+  - **Archival storage:** Better ratio from LZMA2 saves space
+  - **Already compressed:** Use Copy/Store method
+  
+  ```bash
+  # Wrong: Deflate for long-term archive
+  7z a -tzip archive.zip large_dataset/
+  
+  # Right: LZMA2 for better compression
+  7z a archive.7z large_dataset/
+  ```
+</Accordion>
+
+## Deflate vs Other Methods
+
+| Feature | Deflate | LZMA2 | BZip2 | PPMd |
+|---------|---------|-------|-------|-------|
+| Method ID | 04 01 08 | 21 | 04 02 02 | 03 04 01 |
+| Compression Ratio | Fair (5/10) | Excellent (9/10) | Good (7/10) | Excellent (10/10) |
+| Compression Speed | Fast (7/10) | Slow (3/10) | Medium (5/10) | Very Slow (2/10) |
+| Decompression Speed | Very Fast (9/10) | Medium (6/10) | Medium (6/10) | Slow (4/10) |
+| Memory (Compress) | Very Low (~512 KB) | High (~200 MB) | Low (~10 MB) | High (~64 MB) |
+| Memory (Decompress) | Very Low (~40 KB) | Medium (~50 MB) | Low (~4 MB) | High (~64 MB) |
+| Window Size | 32 KB | Up to 1.5 GB | 900 KB | Variable |
+| Multithreading | No | Yes | No | No |
+| Streaming | Yes | Yes | Yes | Yes |
+| Compatibility | Universal | Limited | Wide | Limited |
+| Year Introduced | 1993 | 2009 | 1996 | 2001 |
+
+<Info>
+Deflate's main advantages are:
+1. **Universal compatibility** (every platform, every language)
+2. **Very fast decompression** (10-20x faster than LZMA)
+3. **Minimal memory** (usable on any device)
+4. **Proven reliability** (30+ years of widespread use)
+</Info>
+
+## Best Practices
+
+<Accordion title="Level Selection">
+  Choose compression level based on use case:
+  
+  - **Level 1:** Temporary files, network transmission
+  - **Level 6:** General-purpose ZIP archives
+  - **Level 9:** Archives for distribution, static web assets
+  
+  ```bash
+  # Quick backup (speed priority)
+  7z a -tzip -mx=1 backup.zip /important/data/
+  
+  # Distribution archive (size priority)
+  7z a -tzip -mx=9 release.zip software/
+  ```
+</Accordion>
+
+<Accordion title="ZIP vs 7z Format">
+  When to use each format:
+  
+  **Use ZIP when:**
+  - Need compatibility with all systems
+  - Recipients may not have 7-Zip installed
+  - Fast decompression is priority
+  
+  **Use 7z when:**
+  - Need maximum compression (LZMA2)
+  - All users have 7-Zip or compatible tools
+  - Archival storage (size matters more than compatibility)
+  
+  ```bash
+  # Sharing with non-technical users
+  7z a -tzip documents.zip files/
+  
+  # Personal archive or technical users
+  7z a archive.7z files/
+  ```
+</Accordion>
+
+<Accordion title="Solid vs Non-Solid with Deflate">
+  Deflate benefit from solid archives:
+  
+  ```bash
+  # Solid archive (better compression)
+  7z a -tzip archive.zip folder/
+  
+  # Non-solid (each file compressed separately)
+  7z a -tzip -ms=off archive.zip folder/
+  ```
+  
+  <Note>
+  Standard ZIP tools create non-solid archives. 7-Zip's ZIP format can create solid archives for better compression, but this may reduce compatibility.
+  </Note>
+</Accordion>
+
+<Accordion title="Testing and Verification">
+  Always test archives after creation:
+  
+  ```bash
+  # Create archive
+  7z a -tzip archive.zip folder/
+  
+  # Test archive integrity
+  7z t archive.zip
+  
+  # List contents
+  7z l archive.zip
+  ```
+</Accordion>
+
+## Advanced Topics
+
+<Accordion title="Deflate in HTTP Compression">
+  Configure web server compression:
+  
+  **Nginx:**
+  ```nginx
+  gzip on;
+  gzip_comp_level 6;
+  gzip_types text/plain text/css application/json application/javascript;
+  ```
+  
+  **Apache:**
+  ```apache
+  <IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    DeflateCompressionLevel 6
+  </IfModule>
+  ```
+</Accordion>
+
+<Accordion title="Pre-compression for Static Assets">
+  Pre-compress static files for faster serving:
+  
+  ```bash
+  # Compress all CSS/JS files
+  for file in *.css *.js; do
+    7z a -tgzip -mx=9 "${file}.gz" "$file"
+  done
+  ```
+  
+  Configure server to serve pre-compressed versions.
+</Accordion>
+
+<Accordion title="Deflate Stream Format">
+  Deflate stream structure:
+  
+  ```
+  Stream:
+    Block 1:
+      Block header (3 bits):
+        BFINAL (1 bit): Last block flag
+        BTYPE (2 bits): 00=stored, 01=fixed Huffman, 10=dynamic Huffman
+      [Block data]
+    Block 2:
+      ...
+  ```
+  
+  Each block can use different compression strategies.
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Poor Compression Ratio">
+  If Deflate compression is ineffective:
+  
+  1. **Check if data is already compressed**
+     ```bash
+     file suspicious.dat  # Check file type
+     ```
+  
+  2. **Try higher compression level**
+     ```bash
+     7z a -tzip -mx=9 archive.zip data/
+     ```
+  
+  3. **Consider LZMA2 for better ratio**
+     ```bash
+     7z a archive.7z data/  # Uses LZMA2 by default
+     ```
+</Accordion>
+
+<Accordion title="Compatibility Issues">
+  If ZIP archives don't open on other systems:
+  
+  1. **Use standard ZIP format**
+     ```bash
+     7z a -tzip -ms=off archive.zip files/
+     ```
+  
+  2. **Avoid advanced features**
+     - Don't use solid mode for ZIP
+     - Don't use encryption (or use ZipCrypto)
+     - Don't use Deflate64
+  
+  3. **Test with multiple tools**
+     ```bash
+     unzip -t archive.zip
+     7z t archive.zip
+     ```
+</Accordion>
+
+## See Also
+
+- [LZMA2 Compression](/compression/lzma2) - Better compression ratio
+- [BZip2 Compression](/compression/bzip2) - Balanced performance
+- [Compression Methods Overview](/compression/overview) - Compare all methods
+- External: RFC 1951 (Deflate specification), zlib library documentation
+- Tools: gzip, pigz (parallel gzip), zopfli (optimized Deflate)

@@ -1,0 +1,358 @@
+---
+title: SDK overview
+description: Integrate 7-Zip compression into your applications with the LZMA SDK and 7z APIs
+---
+
+7-Zip provides multiple SDKs and APIs for integrating compression functionality into your applications.
+
+## Available SDKs
+
+<CardGroup cols={2}>
+  <Card title="LZMA SDK" icon="code" href="/dev/lzma-sdk">
+    Public domain C/C++ compression library
+  </Card>
+  <Card title="7z Format" icon="file-zipper" href="/dev/7z-format">
+    Complete 7z format specification
+  </Card>
+  <Card title="DLL Integration" icon="file-code" href="/dev/dlls">
+    Use 7-Zip DLLs in your application
+  </Card>
+  <Card title="Source Code" icon="github" href="https://github.com/ip7z/7zip">
+    Full source code on GitHub
+  </Card>
+</CardGroup>
+
+## LZMA SDK
+
+The LZMA SDK is a public domain compression library:
+
+- **License**: Public domain (no restrictions)
+- **Languages**: C, C++, C#, Java
+- **Formats**: LZMA, LZMA2, XZ
+- **Size**: Minimal footprint (~50 KB)
+- **Download**: [7-zip.org/sdk.html](https://7-zip.org/sdk.html)
+
+```c
+// Example: LZMA compression in C
+#include "LzmaEnc.h"
+#include "LzmaDec.h"
+
+// Compress data
+SizeT destLen = sourceLen + sourceLen / 3 + 128;
+LzmaCompress(dest, &destLen, src, sourceLen, ...);
+
+// Decompress data
+LzmaDecode(dest, &destLen, src, &srcLen, ...);
+```
+
+## 7z ANSI-C Decoder
+
+Simplified C decoder for 7z archives:
+
+**Files** (from `DOC/7zC.txt`):
+- `7zDec.c` - Low level 7z decoding
+- `7zArcIn.c` - Archive opening
+- `7z.h` - Main header file
+- `7zTypes.h` - Type definitions
+
+**Features**:
+- Reads 7z archives
+- Extracts files
+- Tests integrity
+- Lists contents
+- LZMA and Copy methods supported
+
+```c
+// Example: Open and extract 7z archive
+#include "7z.h"
+#include "7zAlloc.h"
+
+CSzArEx db;
+ISzAlloc allocImp;
+ISzAlloc allocTempImp;
+
+// Initialize
+SzArEx_Init(&db);
+
+// Open archive
+SzArEx_Open(&db, inStream, &allocImp, &allocTempImp);
+
+// Extract files
+for (i = 0; i < db.NumFiles; i++) {
+    SzArEx_Extract(&db, inStream, i, ...);
+}
+
+// Cleanup
+SzArEx_Free(&db, allocImp.Free);
+```
+
+## 7-Zip DLLs
+
+7-Zip provides COM-based DLLs for Windows:
+
+### Available DLLs
+
+| DLL | Description | Formats |
+|-----|-------------|--------|
+| **7z.dll** | All formats | 7z, ZIP, TAR, GZIP, RAR, ISO, etc. |
+| **7za.dll** | 7z format | 7z only |
+| **7zxa.dll** | 7z extraction | 7z (extract only) |
+
+**Location**: `CPP/7zip/Bundles/Format7zF/`
+
+```cpp
+// Load 7z.dll
+HMODULE lib = LoadLibrary("7z.dll");
+CreateObjectFunc createObject = 
+    (CreateObjectFunc)GetProcAddress(lib, "CreateObject");
+
+// Create archive handler
+IInArchive* archive;
+createObject(&CLSID_CFormatZip, &IID_IInArchive, (void**)&archive);
+```
+
+## API Interfaces
+
+### IInArchive
+
+For reading archives:
+
+```cpp
+interface IInArchive {
+    Open(IInStream *stream, ...);          // Open archive
+    GetNumberOfItems(UInt32 *numItems);    // Get file count
+    GetProperty(UInt32 index, ...);        // Get file info
+    Extract(const UInt32* indices, ...);   // Extract files
+    Close();                                // Close archive
+};
+```
+
+### IOutArchive
+
+For creating archives:
+
+```cpp
+interface IOutArchive {
+    UpdateItems(ISequentialOutStream *stream, ...);
+    GetFileTimeType(UInt32 *type);
+};
+```
+
+## Memory Allocation
+
+7-Zip uses custom allocators:
+
+```c
+// From 7z.h (lines 16-20)
+typedef struct {
+    void *(*Alloc)(ISzAllocPtr p, size_t size);
+    void (*Free)(ISzAllocPtr p, void *address);
+} ISzAlloc;
+
+// Example allocator
+static void *SzAlloc(ISzAllocPtr p, size_t size) { 
+    return malloc(size); 
+}
+
+static void SzFree(ISzAllocPtr p, void *address) { 
+    free(address); 
+}
+
+static const ISzAlloc g_Alloc = { SzAlloc, SzFree };
+```
+
+## Compression API
+
+### LZMA Encoder
+
+```c
+// From LzmaEnc.h
+typedef struct {
+    UInt32 level;          // 0-9
+    UInt32 dictSize;       // Dictionary size
+    UInt32 lc;             // Number of literal context bits (0-8)
+    UInt32 lp;             // Number of literal pos bits (0-4)
+    UInt32 pb;             // Number of pos bits (0-4)
+    UInt32 fb;             // Fast bytes (5-273)
+    UInt32 numThreads;     // 1-2
+} CLzmaEncProps;
+
+// Initialize encoder
+LzmaEncProps_Init(&props);
+props.level = 9;
+props.dictSize = 1 << 24; // 16 MB
+
+// Create encoder
+CLzmaEncHandle enc = LzmaEnc_Create(&g_Alloc);
+LzmaEnc_SetProps(enc, &props);
+LzmaEnc_Encode(enc, outStream, inStream, ...);
+LzmaEnc_Destroy(enc, &g_Alloc);
+```
+
+### LZMA Decoder
+
+```c
+// From LzmaDec.h
+typedef struct {
+    unsigned lc, lp, pb;   // Properties
+    UInt32 dicSize;         // Dictionary size
+} CLzmaProps;
+
+// Decode header
+LzmaProps_Decode(&props, header, LZMA_PROPS_SIZE);
+
+// Initialize decoder
+CLzmaDec dec;
+LzmaDec_Construct(&dec);
+LzmaDec_Allocate(&dec, &props, &g_Alloc);
+LzmaDec_Init(&dec);
+
+// Decode data
+SizeT destLen = ..., srcLen = ...;
+LzmaDec_DecodeToBuf(&dec, dest, &destLen, src, &srcLen, ...);
+
+// Cleanup
+LzmaDec_Free(&dec, &g_Alloc);
+```
+
+## Return Codes
+
+From `7zTypes.h` (lines 40-60):
+
+```c
+typedef enum {
+    SZ_OK = 0,
+    SZ_ERROR_DATA = 1,
+    SZ_ERROR_MEM = 2,
+    SZ_ERROR_CRC = 3,
+    SZ_ERROR_UNSUPPORTED = 4,
+    SZ_ERROR_PARAM = 5,
+    SZ_ERROR_INPUT_EOF = 6,
+    SZ_ERROR_OUTPUT_EOF = 7,
+    SZ_ERROR_READ = 8,
+    SZ_ERROR_WRITE = 9,
+    SZ_ERROR_PROGRESS = 10,
+    SZ_ERROR_FAIL = 11,
+    SZ_ERROR_THREAD = 12,
+    SZ_ERROR_ARCHIVE = 16,
+    SZ_ERROR_NO_ARCHIVE = 17
+} SRes;
+```
+
+## Building the SDK
+
+### Windows
+
+```cmd
+cd C\\Util\\Lzma
+nmake /f makefile
+```
+
+### Linux/macOS
+
+```bash
+cd C/Util/Lzma
+make -f makefile.gcc
+```
+
+## Example Applications
+
+The SDK includes example programs:
+
+- **`C/Util/7z/7zMain.c`** - 7z archive decoder
+- **`C/Util/Lzma/LzmaUtil.c`** - LZMA compression utility
+- **`C/Util/LzmaLib/LzmaLibExports.c`** - DLL exports
+
+## Integration Examples
+
+### Compress File in Memory
+
+```c
+#include "LzmaLib.h"
+
+unsigned char src[1000000];
+unsigned char dest[1100000];
+size_t destLen = sizeof(dest);
+size_t srcLen = sizeof(src);
+
+// Compress
+int res = LzmaCompress(
+    dest, &destLen,
+    src, srcLen,
+    dest + destLen, 5,  // props
+    1 << 24,            // dictSize = 16MB
+    3, 0, 2, 32, 2      // lc, lp, pb, fb, numThreads
+);
+
+if (res == SZ_OK) {
+    printf("Compressed %zu -> %zu bytes\n", srcLen, destLen);
+}
+```
+
+### Extract 7z Archive
+
+```c
+#include "7z.h"
+#include "7zFile.h"
+#include "7zAlloc.h"
+
+CFileInStream archiveStream;
+CLookToRead2 lookStream;
+CSzArEx db;
+ISzAlloc allocImp = {SzAlloc, SzFree};
+ISzAlloc allocTempImp = {SzAllocTemp, SzFreeTemp};
+
+// Open file
+if (InFile_Open(&archiveStream.file, "archive.7z"))
+    return 1;
+
+// Initialize
+FileInStream_CreateVTable(&archiveStream);
+LookToRead2_CreateVTable(&lookStream, False);
+lookStream.buf = NULL;
+lookStream.bufSize = 0;
+lookStream.realStream = &archiveStream.vt;
+LookToRead2_Init(&lookStream);
+
+CrcGenerateTable();
+SzArEx_Init(&db);
+
+// Open archive
+SRes res = SzArEx_Open(&db, &lookStream.vt, &allocImp, &allocTempImp);
+
+if (res == SZ_OK) {
+    // Extract files
+    for (UInt32 i = 0; i < db.NumFiles; i++) {
+        // ... extract file i
+    }
+}
+
+// Cleanup
+SzArEx_Free(&db, &allocImp);
+File_Close(&archiveStream.file);
+```
+
+## Documentation Files
+
+- **`DOC/7zC.txt`** - 7z ANSI-C decoder documentation
+- **`DOC/7zFormat.txt`** - 7z format specification
+- **`DOC/lzma.txt`** - LZMA algorithm description
+- **`DOC/Methods.txt`** - Compression method IDs
+
+## License
+
+From `DOC/7zC.txt`:
+
+> 7z ANSI-C Decoder is part of the LZMA SDK.
+> LZMA SDK is written and placed in the public domain by Igor Pavlov.
+
+<Info>
+The LZMA SDK is **public domain** - you can use it freely in any project without restrictions or attribution requirements.
+</Info>
+
+## See Also
+
+- [LZMA SDK](/dev/lzma-sdk)
+- [7z Format Specification](/dev/7z-format)
+- [DLL Integration](/dev/dlls)
+- [Building from Source](/dev/building)

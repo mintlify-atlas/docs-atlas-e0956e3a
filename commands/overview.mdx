@@ -1,0 +1,151 @@
+---
+title: Command Overview
+description: Complete reference of all 7-Zip command-line commands
+---
+
+7-Zip supports a comprehensive set of command-line operations for working with archives. Each command is specified as a single letter or word following the 7z executable.
+
+## Command Syntax
+
+```bash
+7z <command> [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Available Commands
+
+<CardGroup cols={3}>
+  <Card title="Add (a)" icon="plus" href="/commands/add">
+    Add files to archive
+  </Card>
+  <Card title="Update (u)" icon="arrows-rotate" href="/commands/update">
+    Update files to archive
+  </Card>
+  <Card title="Delete (d)" icon="trash" href="/commands/delete">
+    Delete files from archive
+  </Card>
+  <Card title="Extract (x, e)" icon="file-export" href="/commands/extract">
+    Extract files from archive
+  </Card>
+  <Card title="List (l)" icon="list" href="/commands/list">
+    List contents of archive
+  </Card>
+  <Card title="Test (t)" icon="check" href="/commands/test">
+    Test integrity of archive
+  </Card>
+  <Card title="Benchmark (b)" icon="gauge" href="/commands/benchmark">
+    Benchmark compression performance
+  </Card>
+  <Card title="Hash (h)" icon="hashtag" href="/commands/hash">
+    Calculate hash values for files
+  </Card>
+  <Card title="Rename (rn)" icon="pen" href="#">
+    Rename files in archive
+  </Card>
+</CardGroup>
+
+## Command Categories
+
+### Archive Creation & Update
+
+- **a (Add)** - Create new archives or add files to existing ones
+- **u (Update)** - Update files in archive with newer versions
+- **d (Delete)** - Remove files from archives
+
+### Archive Extraction
+
+- **x (Extract with full paths)** - Extract files preserving directory structure
+- **e (Extract)** - Extract files to current directory without paths
+
+### Archive Information
+
+- **l (List)** - Display archive contents and metadata
+- **t (Test)** - Verify archive integrity without extraction
+
+### Utilities
+
+- **b (Benchmark)** - Test system compression/decompression performance
+- **h (Hash)** - Calculate checksums (CRC32, SHA256, etc.)
+- **i (Info)** - Show supported formats and codecs
+
+## Common Switches
+
+Most commands support these common switches:
+
+<ParamField path="-o{Directory}" type="string">
+  Set output directory for extraction
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Set password for encrypted archives
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Set archive type (7z, zip, tar, etc.)
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories
+</ParamField>
+
+<ParamField path="-mx{N}" type="number">
+  Set compression level (0=store, 1=fastest, 5=normal, 9=ultra)
+</ParamField>
+
+<ParamField path="-mmt{N}" type="number">
+  Set number of CPU threads
+</ParamField>
+
+<ParamField path="-y" type="flag">
+  Assume Yes on all queries
+</ParamField>
+
+<ParamField path="-bd" type="flag">
+  Disable progress indicator
+</ParamField>
+
+<ParamField path="-bb{0-3}" type="number">
+  Set output log level
+</ParamField>
+
+## Exit Codes
+
+7-Zip uses the following exit codes:
+
+| Code | Meaning |
+|------|--------|
+| 0 | Normal (no errors or warnings) |
+| 1 | Warning (non-fatal errors) |
+| 2 | Fatal error |
+| 7 | Command line error |
+| 8 | Not enough memory |
+| 255 | User stopped the process |
+
+## Examples
+
+### Create an archive
+```bash
+7z a archive.7z files/
+```
+
+### Extract an archive
+```bash
+7z x archive.7z -o/output/path
+```
+
+### List archive contents
+```bash
+7z l archive.7z
+```
+
+### Test archive integrity
+```bash
+7z t archive.7z
+```
+
+<Note>
+  Command letters are case-insensitive. Both `7z a` and `7z A` work the same.
+</Note>
+
+<Tip>
+  Use `7z --help` to display the full help message with all commands and switches.
+</Tip>

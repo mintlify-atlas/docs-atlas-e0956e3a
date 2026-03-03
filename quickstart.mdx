@@ -1,80 +1,413 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Learn the essential 7-Zip commands to create, extract, list, and test archives in minutes.
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will get you up and running with 7-Zip quickly. You'll learn the most common operations: creating archives, extracting files, listing contents, and testing archive integrity.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+On Linux/macOS, use `7zz` as the command. On Windows, use `7z` (or `7z.exe` with full path). The examples below use `7z` for simplicity, but both work identically.
 </Note>
+
+## Basic Command Structure
+
+7-Zip commands follow this pattern:
+
+```bash
+7z <command> [<switches>...] <archive_name> [<file_names>...]
+```
+
+- **command** - Single letter command (a, x, e, l, t, etc.)
+- **switches** - Optional parameters starting with `-`
+- **archive_name** - Name of the archive file
+- **file_names** - Files or directories to process
+
+## Creating Your First Archive
+
+<Steps>
+  <Step title="Create a simple archive">
+    Compress a single file or directory into a 7z archive:
+
+    <CodeGroup>
+    ```bash Linux/macOS
+    # Compress a file
+    7zz a documents.7z file.txt
+
+    # Compress a directory
+    7zz a backup.7z /home/user/Documents
+
+    # Compress multiple files
+    7zz a photos.7z photo1.jpg photo2.jpg photo3.jpg
+    ```
+
+    ```cmd Windows
+    # Compress a file
+    7z a documents.7z file.txt
+
+    # Compress a directory
+    7z a backup.7z C:\Users\Username\Documents
+
+    # Compress multiple files
+    7z a photos.7z photo1.jpg photo2.jpg photo3.jpg
+    ```
+    </CodeGroup>
+
+    The `a` command means **add** to archive. If the archive doesn't exist, 7-Zip creates it.
+  </Step>
+
+  <Step title="Set compression level">
+    Control the compression ratio vs. speed tradeoff:
+
+    ```bash
+    # Fast compression (less compression)
+    7z a -mx1 fast.7z bigfile.dat
+
+    # Normal compression (default)
+    7z a -mx5 normal.7z bigfile.dat
+
+    # Maximum compression (slower)
+    7z a -mx9 small.7z bigfile.dat
+    ```
+
+    **Compression levels:**
+    - `-mx0` - Store only (no compression)
+    - `-mx1` - Fastest compression
+    - `-mx3` - Fast compression
+    - `-mx5` - Normal (default)
+    - `-mx7` - Maximum
+    - `-mx9` - Ultra (slowest, best compression)
+  </Step>
+
+  <Step title="Create a password-protected archive">
+    Add encryption to protect sensitive data:
+
+    ```bash
+    # Create encrypted archive
+    7z a -p secret.7z confidential.pdf
+    ```
+
+    7-Zip will prompt you to enter a password. To specify the password inline:
+
+    ```bash
+    7z a -pMySecretPassword secure.7z data.txt
+    ```
+
+    <Tip>
+    7-Zip uses AES-256 encryption for 7z archives, which is considered very secure. Avoid using inline passwords in scripts as they may be visible in command history.
+    </Tip>
+  </Step>
+
+  <Step title="Create archives in other formats">
+    Use the `-t` switch to specify the archive format:
+
+    ```bash
+    # Create ZIP archive
+    7z a -tzip archive.zip files/
+
+    # Create TAR.GZ archive (Linux/macOS)
+    7z a -ttar files.tar files/
+    7z a -tgzip files.tar.gz files.tar
+
+    # Or in one command
+    tar -czf files.tar.gz files/  # Using system tar
+
+    # Create BZIP2 archive
+    7z a -tbzip2 archive.tar.bz2 files.tar
+    ```
+
+    **Supported archive types for creation:**
+    - `7z` - 7-Zip native format (default, best compression)
+    - `zip` - ZIP archive
+    - `gzip` - GZIP compressed
+    - `bzip2` - BZIP2 compressed
+    - `tar` - TAR archive (no compression)
+    - `wim` - Windows Imaging Format
+    - `xz` - XZ compressed
+  </Step>
+</Steps>
+
+## Extracting Archives
+
+<Steps>
+  <Step title="Extract with full paths">
+    Use the `x` command to extract files with their directory structure:
+
+    <CodeGroup>
+    ```bash Linux/macOS
+    # Extract archive to current directory
+    7zz x archive.7z
+
+    # Extract to specific directory
+    7zz x archive.7z -o/home/user/extracted/
+
+    # Extract with yes to all prompts
+    7zz x archive.7z -y
+    ```
+
+    ```cmd Windows
+    # Extract archive to current directory
+    7z x archive.7z
+
+    # Extract to specific directory
+    7z x archive.7z -oC:\extracted\
+
+    # Extract with yes to all prompts
+    7z x archive.7z -y
+    ```
+    </CodeGroup>
+
+    <Info>
+    Note: There is no space between `-o` and the path. The correct syntax is `-o/path/` not `-o /path/`.
+    </Info>
+  </Step>
+
+  <Step title="Extract without paths">
+    Use `e` to extract all files to a single directory (no subdirectories):
+
+    ```bash
+    # Extract everything to current directory (flattened)
+    7z e archive.7z
+
+    # Extract to specific directory (flattened)
+    7z e archive.7z -o/tmp/files/
+    ```
+
+    The `e` command extracts all files to the same folder, ignoring the original directory structure.
+  </Step>
+
+  <Step title="Extract password-protected archives">
+    Provide the password when extracting encrypted archives:
+
+    ```bash
+    # Prompt for password
+    7z x protected.7z -p
+
+    # Provide password inline
+    7z x protected.7z -pMySecretPassword
+    ```
+  </Step>
+
+  <Step title="Extract specific files">
+    Extract only certain files from an archive:
+
+    ```bash
+    # Extract single file
+    7z x archive.7z readme.txt
+
+    # Extract files matching pattern
+    7z x archive.7z "*.jpg"
+
+    # Extract specific directory
+    7z x archive.7z docs/
+    ```
+  </Step>
+</Steps>
+
+## Listing Archive Contents
+
+Before extracting, you can view what's inside an archive:
+
+<Steps>
+  <Step title="List files in archive">
+    Use the `l` (list) command:
+
+    ```bash
+    # Basic listing
+    7z l archive.7z
+    ```
+
+    Output shows:
+    - Date and time
+    - File attributes
+    - File size
+    - Compressed size
+    - File name
+  </Step>
+
+  <Step title="Show technical information">
+    Get detailed technical information about the archive:
+
+    ```bash
+    7z l -slt archive.7z
+    ```
+
+    This displays:
+    - Compression method
+    - CRC checksums
+    - Encryption details
+    - Block information
+    - Archive properties
+  </Step>
+</Steps>
+
+## Testing Archives
+
+Verify archive integrity without extracting:
+
+```bash
+# Test archive integrity
+7z t archive.7z
+
+# Test with password
+7z t protected.7z -pPassword123
+
+# Test specific files
+7z t archive.7z "*.txt"
+```
+
+The `t` command checks:
+- CRC checksums
+- Archive structure
+- Compression integrity
+- File data validity
+
+<Tip>
+Always test archives after creation, especially for important backups, to ensure they weren't corrupted during creation or transfer.
+</Tip>
+
+## Common Use Cases
+
+### Backup a Directory
+
+```bash
+# Create compressed backup with maximum compression
+7z a -mx9 backup-$(date +%Y%m%d).7z /home/user/important_data/
+
+# With encryption
+7z a -mx9 -p backup-$(date +%Y%m%d).7z /home/user/important_data/
+```
+
+### Split Large Archives into Volumes
+
+```bash
+# Split into 100MB volumes
+7z a -v100m large_archive.7z /path/to/big/files/
+
+# Split into 4.7GB volumes (DVD size)
+7z a -v4700m dvd_backup.7z /media/files/
+```
+
+This creates:
+- `large_archive.7z.001`
+- `large_archive.7z.002`
+- `large_archive.7z.003`
+- etc.
+
+To extract, just use the first volume:
+```bash
+7z x large_archive.7z.001
+```
+
+### Update Existing Archive
+
+```bash
+# Update archive (add new files, update modified files)
+7z u archive.7z newfile.txt
+
+# Add files recursively from directory
+7z u archive.7z /home/user/documents/ -r
+```
+
+### Delete Files from Archive
+
+```bash
+# Delete specific file
+7z d archive.7z oldfile.txt
+
+# Delete files matching pattern
+7z d archive.7z "*.tmp"
+```
+
+### Hash Calculation
+
+```bash
+# Calculate SHA-256 hash
+7z h -scrcSHA256 file.iso
+
+# Calculate CRC32
+7z h -scrcCRC32 file.zip
+
+# Calculate multiple hashes for multiple files
+7z h -scrcSHA256 *.zip
+```
+
+### Benchmark System Performance
+
+Test your CPU's compression and decompression speed:
+
+```bash
+# Run benchmark (default)
+7z b
+
+# Benchmark with specific number of threads
+7z b -mmt4
+
+# Benchmark specific compression method
+7z b -mm=LZMA2
+```
+
+## Useful Switches Reference
+
+Here are the most commonly used switches:
+
+| Switch | Description | Example |
+|--------|-------------|----------|
+| `-o<path>` | Set output directory | `7z x file.7z -o/tmp/` |
+| `-p<pwd>` | Set password | `7z a -pSecret file.7z data.txt` |
+| `-mx<level>` | Set compression level (0-9) | `7z a -mx9 file.7z data/` |
+| `-mmt<N>` | Set number of CPU threads | `7z a -mmt4 file.7z data/` |
+| `-r` | Recurse subdirectories | `7z a file.7z *.txt -r` |
+| `-t<type>` | Set archive type | `7z a -tzip file.zip data/` |
+| `-v<size>` | Create volumes | `7z a -v100m file.7z data/` |
+| `-y` | Assume Yes on all queries | `7z x file.7z -y` |
+| `-bd` | Disable progress indicator | `7z a file.7z data/ -bd` |
+| `-sdel` | Delete files after archiving | `7z a file.7z *.log -sdel` |
+| `-ao<mode>` | Overwrite mode (a/s/t/u) | `7z x file.7z -aoa` |
+| `-slt` | Show technical info | `7z l -slt file.7z` |
+| `-bb<level>` | Set output log level (0-3) | `7z a file.7z data/ -bb3` |
+
+## Command Quick Reference
+
+| Command | Description | Example |
+|---------|-------------|----------|
+| `a` | Add files to archive | `7z a archive.7z files/` |
+| `x` | Extract with full paths | `7z x archive.7z` |
+| `e` | Extract without paths | `7z e archive.7z` |
+| `l` | List contents | `7z l archive.7z` |
+| `t` | Test archive integrity | `7z t archive.7z` |
+| `u` | Update archive | `7z u archive.7z newfile.txt` |
+| `d` | Delete from archive | `7z d archive.7z oldfile.txt` |
+| `h` | Calculate hash | `7z h -scrcSHA256 file.iso` |
+| `b` | Benchmark | `7z b` |
+| `i` | Show codec info | `7z i` |
+| `rn` | Rename files in archive | `7z rn archive.7z old.txt new.txt` |
+
+## Best Practices
+
+<Tip>
+1. **Use 7z format for best compression** - The native 7z format provides better compression than ZIP
+2. **Test archives after creation** - Always use `7z t` to verify integrity
+3. **Choose appropriate compression levels** - Use `-mx1` for speed, `-mx9` for size
+4. **Use password protection for sensitive data** - 7-Zip uses strong AES-256 encryption
+5. **Enable multi-threading** - Use `-mmt` to utilize all CPU cores for faster compression
+6. **Split large archives** - Use `-v` to create volumes that fit on media or have size limits
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Command Reference" icon="terminal" href="/commands">
+    Explore all available commands and switches in detail
+  </Card>
+  <Card title="Advanced Usage" icon="gear" href="/advanced">
+    Learn advanced techniques like SFX archives, filtering, and automation
+  </Card>
+  <Card title="Format Specifications" icon="file-code" href="/formats">
+    Understand the 7z format and other supported archive types
+  </Card>
+  <Card title="Compression Methods" icon="compress" href="/methods">
+    Deep dive into LZMA, LZMA2, PPMd, and other compression algorithms
+  </Card>
+</CardGroup>

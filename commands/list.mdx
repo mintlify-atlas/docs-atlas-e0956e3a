@@ -1,0 +1,378 @@
+---
+title: List Command (l)
+description: List contents and properties of archives
+---
+
+The `l` (list) command displays the contents of an archive with detailed information about files, compression ratios, and archive properties.
+
+## Syntax
+
+```bash
+7z l [<switches>...] <archive_name> [<file_names>...] [@listfile]
+```
+
+## Description
+
+The list command provides information about:
+- Files and directories in the archive
+- File sizes (uncompressed and compressed)
+- Compression ratios
+- File attributes and timestamps
+- Archive metadata and properties
+- Encryption status
+
+## Common Options
+
+<ParamField path="archive_name" type="string" required>
+  Name of the archive to list. 7-Zip auto-detects the archive type.
+</ParamField>
+
+<ParamField path="file_names" type="string">
+  Specific files or patterns to list. If omitted, lists all files.
+  
+  **Example:** `*.txt` or `documents/`
+</ParamField>
+
+<ParamField path="-p{Password}" type="string">
+  Provide password for encrypted archives.
+  
+  **Example:** `-pMyPassword` or `-p` (prompts)
+</ParamField>
+
+<ParamField path="-slt" type="flag">
+  Show technical information for each file (detailed mode).
+</ParamField>
+
+<ParamField path="-t{Type}" type="string">
+  Set archive type (usually auto-detected).
+  
+  **Example:** `-t7z`
+</ParamField>
+
+<ParamField path="-x{Pattern}" type="string">
+  Exclude files from listing by pattern.
+  
+  **Example:** `-x!*.tmp`
+</ParamField>
+
+<ParamField path="-i{Pattern}" type="string">
+  Include only files matching pattern.
+  
+  **Example:** `-i!*.txt`
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories (enabled by default).
+</ParamField>
+
+<ParamField path="-ai{Pattern}" type="string">
+  Include archives by pattern.
+</ParamField>
+
+<ParamField path="-ax{Pattern}" type="string">
+  Exclude archives by pattern.
+</ParamField>
+
+## Examples
+
+### Basic listing
+```bash
+7z l archive.7z
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Scanning the drive for archives:
+1 file, 23456 bytes (23 KiB)
+
+Listing archive: archive.7z
+
+--
+Path = archive.7z
+Type = 7z
+Physical Size = 23456
+Headers Size = 234
+Method = LZMA2:24
+Solid = -
+Blocks = 1
+
+   Date      Time    Attr         Size   Compressed  Name
+------------------- ----- ------------ ------------  ------------------------
+2024-01-15 10:30:22 ....A         1234         456  readme.txt
+2024-01-15 10:30:22 ....A         5678        1234  document.pdf
+2024-01-15 10:30:22 D....            0            0  folder
+2024-01-15 10:30:22 ....A         9012        2345  folder/data.txt
+------------------- ----- ------------ ------------  ------------------------
+2024-01-15 10:30:22              15924        4035  3 files, 1 folder
+```
+
+### List with technical details
+```bash
+7z l -slt archive.7z
+```
+**Output:**
+```
+7-Zip 23.01 (x64) : Copyright (c) 1999-2023 Igor Pavlov : 2023-06-20
+
+Listing archive: archive.7z
+
+--
+Path = archive.7z
+Type = 7z
+Physical Size = 23456
+Headers Size = 234
+Method = LZMA2:24
+Solid = -
+Blocks = 1
+
+----------
+Path = readme.txt
+Folder = -
+Size = 1234
+Packed Size = 456
+Modified = 2024-01-15 10:30:22
+Attributes = ....A
+CRC = 12345678
+Encrypted = -
+Method = LZMA2:24
+Block = 0
+
+----------
+Path = document.pdf
+Folder = -
+Size = 5678
+Packed Size = 1234
+Modified = 2024-01-15 10:30:22
+Attributes = ....A
+CRC = 87654321
+Encrypted = -
+Method = LZMA2:24
+Block = 0
+```
+
+### List specific files
+```bash
+7z l archive.7z *.txt
+```
+
+### List files in directory
+```bash
+7z l archive.7z documents/
+```
+
+### List encrypted archive
+```bash
+7z l -p archive.7z
+```
+**Prompts for password:**
+```
+Enter password (will not be echoed):
+```
+
+### List excluding certain files
+```bash
+7z l archive.7z -x!*.tmp -x!*.bak
+```
+
+### List only specific file types
+```bash
+7z l archive.7z -i!*.jpg -i!*.png
+```
+
+### List multiple archives
+```bash
+7z l *.7z
+```
+
+## Understanding the Output
+
+### Standard Listing Columns
+
+| Column | Description |
+|--------|-------------|
+| Date | Last modification date |
+| Time | Last modification time |
+| Attr | File attributes (D=Directory, R=Read-only, H=Hidden, S=System, A=Archive) |
+| Size | Uncompressed file size |
+| Compressed | Compressed size in archive |
+| Name | File or directory name |
+
+### File Attributes
+
+- **D** - Directory
+- **R** - Read-only
+- **H** - Hidden
+- **S** - System
+- **A** - Archive
+- **.** - Attribute not set
+
+### Archive Properties
+
+- **Type** - Archive format (7z, ZIP, RAR, etc.)
+- **Physical Size** - Actual archive file size
+- **Headers Size** - Size of archive metadata
+- **Method** - Compression method used
+- **Solid** - Whether archive is solid
+- **Blocks** - Number of solid blocks
+
+## Technical Listing (-slt)
+
+The `-slt` switch provides detailed information for each file:
+
+<ParamField path="Path" type="string">
+  Full path of the file within archive
+</ParamField>
+
+<ParamField path="Folder" type="boolean">
+  Whether entry is a folder (+) or file (-)
+</ParamField>
+
+<ParamField path="Size" type="number">
+  Uncompressed size in bytes
+</ParamField>
+
+<ParamField path="Packed Size" type="number">
+  Compressed size in bytes
+</ParamField>
+
+<ParamField path="Modified" type="datetime">
+  Last modification timestamp
+</ParamField>
+
+<ParamField path="Attributes" type="string">
+  File system attributes
+</ParamField>
+
+<ParamField path="CRC" type="string">
+  CRC32 checksum (hexadecimal)
+</ParamField>
+
+<ParamField path="Encrypted" type="boolean">
+  Whether file is encrypted (+) or not (-)
+</ParamField>
+
+<ParamField path="Method" type="string">
+  Compression method and dictionary size
+</ParamField>
+
+<ParamField path="Block" type="number">
+  Solid block number
+</ParamField>
+
+## Advanced Examples
+
+### List with grep filtering
+```bash
+7z l archive.7z | grep ".txt$"
+```
+
+### Count files in archive
+```bash
+7z l archive.7z | grep -c "^[0-9]"
+```
+
+### List only directories
+```bash
+7z l -slt archive.7z | grep -B1 "^Folder = +$" | grep "^Path"
+```
+
+### Calculate total uncompressed size
+```bash
+7z l archive.7z | tail -1 | awk '{print $3}'
+```
+
+### List sorted by size (with parse)
+```bash
+7z l archive.7z | tail -n +13 | head -n -2 | sort -k4 -n
+```
+
+## Working with Different Archive Types
+
+### List ZIP archive
+```bash
+7z l archive.zip
+```
+
+### List TAR archive
+```bash
+7z l archive.tar
+```
+
+### List TAR.GZ archive
+```bash
+7z l archive.tar.gz
+```
+**Shows the .tar file inside, use:**
+```bash
+7z l archive.tar.gz | grep -A999 "Listing archive"
+```
+
+### List RAR archive
+```bash
+7z l archive.rar
+```
+
+### List ISO image
+```bash
+7z l image.iso
+```
+
+### List multi-volume archive
+```bash
+7z l archive.7z.001
+```
+
+### List self-extracting archive
+```bash
+7z l archive.exe
+```
+
+## Scripting with List Command
+
+### Check if file exists in archive
+```bash
+if 7z l archive.7z readme.txt | grep -q "readme.txt"; then
+    echo "File exists"
+fi
+```
+
+### Extract archive metadata
+```bash
+# Get archive type
+7z l archive.7z | grep "^Type" | awk '{print $3}'
+
+# Get physical size
+7z l archive.7z | grep "^Physical Size" | awk '{print $4}'
+
+# Get compression method
+7z l archive.7z | grep "^Method" | cut -d'=' -f2
+```
+
+### List to file
+```bash
+7z l archive.7z > archive_contents.txt
+```
+
+### Parse technical listing
+```bash
+7z l -slt archive.7z | awk '/^Path = / {path=$3} /^Size = / {size=$3; print path, size}'
+```
+
+<Note>
+  The list command does not extract any files. It only reads the archive's central directory/headers, making it very fast even for large archives.
+</Note>
+
+<Tip>
+  Use `-slt` when you need to parse archive contents programmatically. The technical format is more consistent and easier to parse than the standard format.
+</Tip>
+
+<Warning>
+  For encrypted archives with header encryption (-mhe=on in 7z format), you must provide the password even to list contents.
+</Warning>
+
+## Related Commands
+
+- [Extract Command (x, e)](/commands/extract) - Extract files from archive
+- [Test Command (t)](/commands/test) - Test archive integrity
+- [Add Command (a)](/commands/add) - Create archives

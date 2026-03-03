@@ -1,0 +1,265 @@
+---
+title: Command-line switches
+description: Complete reference for 7-Zip command-line switches and options
+---
+
+7-Zip provides extensive command-line switches to control compression, extraction, and archive operations.
+
+## Switch Syntax
+
+Switches start with `-` (dash) or `/` (forward slash) on Windows:
+
+```bash
+7z a -mx=9 -mfb=273 archive.7z files/
+7z a /mx=9 /mfb=273 archive.7z files/
+```
+
+## General Switches
+
+<ParamField path="-o" type="string">
+  Output directory for extracted files
+  
+  ```bash
+  7z x archive.7z -o/path/to/output
+  ```
+</ParamField>
+
+<ParamField path="-p" type="string">
+  Set password for archive
+  
+  ```bash
+  7z a -pMyPassword archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Recurse subdirectories
+  
+  ```bash
+  7z a archive.7z *.txt -r
+  ```
+</ParamField>
+
+<ParamField path="-t" type="string">
+  Set archive type (7z, zip, tar, gzip, etc.)
+  
+  ```bash
+  7z a -tzip archive.zip files/
+  ```
+</ParamField>
+
+<ParamField path="-x" type="string">
+  Exclude files by pattern
+  
+  ```bash
+  7z a archive.7z * -x!*.tmp -x!*.log
+  ```
+</ParamField>
+
+<ParamField path="-y" type="flag">
+  Assume Yes on all queries
+  
+  ```bash
+  7z x archive.7z -y
+  ```
+</ParamField>
+
+## Compression Switches
+
+<ParamField path="-mx" type="number">
+  Set compression level (0-9)
+  
+  - `-mx=0` - Copy mode (no compression)
+  - `-mx=1` - Fastest compression
+  - `-mx=5` - Normal compression (default)
+  - `-mx=7` - Maximum compression
+  - `-mx=9` - Ultra compression
+  
+  ```bash
+  7z a -mx=9 archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-m" type="string">
+  Set compression method
+  
+  - `-m0=LZMA2` - Use LZMA2
+  - `-m0=LZMA` - Use LZMA
+  - `-m0=PPMd` - Use PPMd
+  - `-m0=BZip2` - Use BZip2
+  
+  ```bash
+  7z a -m0=LZMA2 -mx=9 archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-md" type="string">
+  Set dictionary size (e.g., 16m, 32m, 64m)
+  
+  ```bash
+  7z a -md=64m archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-mfb" type="number">
+  Set number of fast bytes (5-273) for LZMA
+  
+  ```bash
+  7z a -mfb=273 archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-ms" type="string">
+  Set solid archive mode (on/off or block size)
+  
+  ```bash
+  # Solid archive
+  7z a -ms=on archive.7z files/
+  
+  # Solid blocks of 1GB
+  7z a -ms=1g archive.7z files/
+  
+  # Non-solid
+  7z a -ms=off archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-mmt" type="number">
+  Set number of CPU threads
+  
+  ```bash
+  # Use 4 threads
+  7z a -mmt=4 archive.7z files/
+  
+  # Use all available threads
+  7z a -mmt=on archive.7z files/
+  ```
+</ParamField>
+
+## Update Switches
+
+<ParamField path="-u" type="string">
+  Update options
+  
+  - `-u-` - Disable archive update
+  - `-up0q0r2x2y2z0w2` - Complex update mode
+  
+  ```bash
+  7z u archive.7z newfile.txt -u-
+  ```
+</ParamField>
+
+<ParamField path="-w" type="string">
+  Set working directory
+  
+  ```bash
+  7z a -w/tmp archive.7z files/
+  ```
+</ParamField>
+
+## Archive Handling
+
+<ParamField path="-v" type="string">
+  Create volumes (multi-part archives)
+  
+  ```bash
+  # 100MB volumes
+  7z a -v100m archive.7z files/
+  
+  # CD-sized volumes (700MB)
+  7z a -v700m archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-sdel" type="flag">
+  Delete files after compression
+  
+  ```bash
+  7z a -sdel archive.7z files/
+  ```
+</ParamField>
+
+<ParamField path="-sfx" type="string">
+  Create self-extracting archive
+  
+  ```bash
+  7z a -sfx archive.exe files/
+  ```
+</ParamField>
+
+<ParamField path="-ssw" type="flag">
+  Compress locked files
+  
+  ```bash
+  7z a -ssw archive.7z files/
+  ```
+</ParamField>
+
+## Overwrite Mode
+
+<ParamField path="-ao" type="string">
+  Overwrite mode for extraction
+  
+  - `-aoa` - Overwrite all
+  - `-aos` - Skip existing files
+  - `-aou` - Auto rename
+  - `-aot` - Auto rename existing
+  
+  ```bash
+  7z x archive.7z -aoa
+  ```
+</ParamField>
+
+## Listing Options
+
+<ParamField path="-slt" type="flag">
+  Show technical information
+  
+  ```bash
+  7z l -slt archive.7z
+  ```
+</ParamField>
+
+<ParamField path="-ba" type="flag">
+  Disable archiver messages
+  
+  ```bash
+  7z a -ba archive.7z files/
+  ```
+</ParamField>
+
+## Examples
+
+### Maximum Compression
+
+```bash
+7z a -t7z -m0=lzma2 -mx=9 -md=64m -mfb=273 -ms=on -mmt=on archive.7z files/
+```
+
+### Fast Compression with Multi-threading
+
+```bash
+7z a -mx=1 -mmt=4 archive.7z files/
+```
+
+### Password-Protected Solid Archive
+
+```bash
+7z a -pMySecretPassword -mhe=on -ms=on archive.7z files/
+```
+
+### Split Archive with Exclusions
+
+```bash
+7z a -v100m -x!*.tmp -x!*.log archive.7z files/
+```
+
+<Note>
+Switches can be combined in any order. For switches that take values, use `=` without spaces.
+</Note>
+
+## See Also
+
+- [Add Command](/commands/add)
+- [Extract Command](/commands/extract)
+- [Compression Methods](/compression/overview)

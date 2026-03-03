@@ -1,0 +1,296 @@
+---
+title: 7z Format
+description: Technical specification and usage guide for the 7z archive format
+---
+
+7z is the native archive format of 7-Zip, designed to provide the highest compression ratio using advanced compression algorithms and solid compression.
+
+## Format Overview
+
+The 7z format offers several key advantages:
+
+- **High compression ratio** - Typically 30-70% better than ZIP
+- **Open architecture** - Supports any compression method
+- **Strong AES-256 encryption** - Encrypts both file names and data
+- **Large file support** - Up to 16 exabytes (2^64 bytes)
+- **Solid compression** - Treats multiple files as continuous stream
+- **Unicode file names** - Full UTF-16 support
+
+## Format Structure
+
+According to the official format specification (`source/DOC/7zFormat.txt`), a 7z archive consists of:
+
+```
+SignatureHeader
+[PackedStreams]
+[PackedStreamsForHeaders]
+[
+  Header 
+  or 
+  {
+    Packed Header
+    HeaderInfo
+  }
+]
+```
+
+### Signature Header
+
+Every 7z file begins with a signature header:
+
+```cpp
+BYTE kSignature[6] = {'7', 'z', 0xBC, 0xAF, 0x27, 0x1C};
+
+ArchiveVersion {
+  BYTE Major;   // now = 0
+  BYTE Minor;   // now = 4
+};
+
+UINT32 StartHeaderCRC;
+
+StartHeader {
+  REAL_UINT64 NextHeaderOffset
+  REAL_UINT64 NextHeaderSize
+  UINT32 NextHeaderCRC
+}
+```
+
+The signature is always `37 7A BC AF 27 1C` in hexadecimal.
+
+<Note>
+The current format version is 0.4 (Major=0, Minor=4). All 7z archives created by 7-Zip 18.06 and later use this version.
+</Note>
+
+## Compression Methods
+
+The 7z format supports multiple compression codecs, defined in `source/CPP/7zip/Archive/7z/7zHeader.h:100-128`:
+
+### Primary Compression
+
+- **LZMA2** (0x21) - Default, best compression ratio
+- **LZMA** (0x30101) - Original algorithm
+- **PPMd** (0x30401) - Good for text files
+- **Deflate** (0x40108) - Compatible with ZIP
+- **BZip2** (0x40202) - Alternative compression
+
+### Filters (BCJ)
+
+Filters improve compression for executable files:
+
+- **BCJ** (0x3030103) - x86 executables
+- **BCJ2** (0x303011B) - x86 with better ratio
+- **ARM** (0x3030501) - ARM executables
+- **ARM64** (0xa) - ARM64 executables
+- **PPC** (0x3030205) - PowerPC executables
+- **IA64** (0x3030401) - Itanium executables
+- **SPARC** (0x3030805) - SPARC executables
+
+### Encryption
+
+- **AES-256** (0x6F10701) - Strong encryption with SHA-256 key derivation
+
+## Usage Examples
+
+### Create Archive with Maximum Compression
+
+```bash
+7z a -t7z -m0=lzma2 -mx=9 -mfb=64 -md=32m -ms=on archive.7z files/
+```
+
+Parameters:
+- `-t7z` - Use 7z format
+- `-m0=lzma2` - Use LZMA2 compression
+- `-mx=9` - Maximum compression level
+- `-mfb=64` - 64 word size for fast bytes
+- `-md=32m` - 32 MB dictionary size
+- `-ms=on` - Enable solid mode
+
+### Create Encrypted Archive
+
+```bash
+7z a -t7z -p -mhe=on secure.7z files/
+```
+
+Parameters:
+- `-p` - Prompt for password
+- `-mhe=on` - Encrypt headers (file names)
+
+<Warning>
+When using `-mhe=on`, both file names and data are encrypted with AES-256. Without this option, only file data is encrypted and file names remain visible.
+</Warning>
+
+### Create Multi-Volume Archive
+
+```bash
+7z a -t7z -v100m archive.7z files/
+```
+
+Creates volumes: `archive.7z.001`, `archive.7z.002`, etc., each 100 MB.
+
+### Solid vs Non-Solid Archives
+
+**Solid archive** (better compression):
+```bash
+7z a -t7z -ms=on solid.7z files/
+```
+
+**Non-solid archive** (faster single-file extraction):
+```bash
+7z a -t7z -ms=off nonsolid.7z files/
+```
+
+<Info>
+Solid compression treats all files as a continuous data stream, achieving better compression but requiring extraction of all prior files to access a specific file.
+</Info>
+
+## Advanced Features
+
+### Compression Method Chaining
+
+The 7z format supports multiple compression methods in a chain:
+
+```bash
+7z a -t7z -m0=BCJ -m1=LZMA2:d=24m executable.7z program.exe
+```
+
+This applies BCJ filter first (for x86 code), then LZMA2 compression.
+
+### Self-Extracting Archives
+
+```bash
+7z a -sfx archive.exe files/
+```
+
+Creates a Windows executable that extracts itself.
+
+### Archive Update
+
+The 7z format supports efficient updates:
+
+```bash
+7z u archive.7z newfile.txt
+```
+
+Only modified files are recompressed.
+
+## File Properties
+
+The 7z format stores comprehensive file metadata (`7zFormat.txt:80-89`):
+
+- **Names** (0x11) - UTF-16 file names
+- **CTime** (0x12) - Creation time
+- **ATime** (0x13) - Last access time
+- **MTime** (0x14) - Modification time
+- **WinAttributes** (0x15) - Windows file attributes
+- **Comment** (0x16) - File comments
+
+## Format Limitations
+
+<Note>
+While the 7z specification supports files up to 16 exabytes, practical limitations include:
+- Available RAM for dictionary during compression/decompression
+- File system limitations (FAT32, NTFS, etc.)
+- 32-bit vs 64-bit executable limitations
+</Note>
+
+## Implementation Details
+
+The 7z format handler is implemented in:
+
+```
+source/CPP/7zip/Archive/7z/
+├── 7zHandler.cpp      # Main archive handler
+├── 7zHandlerOut.cpp   # Archive creation
+├── 7zIn.cpp           # Archive reading
+├── 7zOut.cpp          # Archive writing
+├── 7zDecode.cpp       # Decompression
+├── 7zEncode.cpp       # Compression
+├── 7zHeader.h         # Format constants
+└── 7zItem.h           # Item structures
+```
+
+### Header Structure
+
+From `source/CPP/7zip/Archive/7z/7zHeader.h:11-37`:
+
+```cpp
+const unsigned kSignatureSize = 6;
+extern Byte kSignature[kSignatureSize];
+
+struct CArchiveVersion {
+  Byte Major;
+  Byte Minor;
+};
+
+const Byte kMajorVersion = 0;
+
+struct CStartHeader {
+  UInt64 NextHeaderOffset;
+  UInt64 NextHeaderSize;
+  UInt32 NextHeaderCRC;
+};
+
+const UInt32 kStartHeaderSize = 20;
+```
+
+## Performance Considerations
+
+### Compression Level Impact
+
+| Level | Speed | Ratio | Dictionary | Description |
+|-------|-------|-------|------------|-------------|
+| -mx=1 | Fastest | Lowest | 64 KB | Fast compression |
+| -mx=5 | Fast | Normal | 16 MB | Default |
+| -mx=7 | Medium | Good | 32 MB | High compression |
+| -mx=9 | Slow | Best | 64 MB | Ultra compression |
+
+### Memory Requirements
+
+Memory usage during compression (LZMA2):
+
+```
+Memory ≈ (Dictionary × 11.5) + 6 MB
+```
+
+For decompression:
+
+```
+Memory ≈ Dictionary + 3 MB
+```
+
+## Comparison with Other Formats
+
+7z vs ZIP:
+- **Compression**: 7z typically 30-70% better
+- **Speed**: ZIP faster for creation and extraction
+- **Compatibility**: ZIP more widely supported
+- **Features**: 7z has solid compression, better encryption
+
+7z vs RAR:
+- **Compression**: Similar ratio, depends on content
+- **Open source**: 7z is open source, RAR is proprietary
+- **Speed**: RAR slightly faster for creation
+- **Recovery**: RAR has better recovery records
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="For Distribution" icon="share">
+    Use `-mx=5` or `-mx=7` for good compression with reasonable speed
+  </Card>
+  <Card title="For Archival" icon="box-archive">
+    Use `-mx=9 -ms=on` for maximum compression
+  </Card>
+  <Card title="For Security" icon="lock">
+    Use `-p -mhe=on` to encrypt both data and file names
+  </Card>
+  <Card title="For Updates" icon="rotate">
+    Use non-solid archives (`-ms=off`) for better update performance
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [Archive Formats Overview](/formats/overview)
+- [ZIP Format](/formats/zip)
+- [XZ Format](/formats/xz)

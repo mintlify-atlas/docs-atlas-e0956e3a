@@ -1,0 +1,150 @@
+---
+title: Archive Formats Overview
+description: Complete guide to archive formats supported by 7-Zip
+---
+
+7-Zip supports a wide range of archive formats for compression, packaging, and distribution. This page provides an overview of the major formats and their capabilities.
+
+## Supported Formats
+
+7-Zip can create archives in the following formats:
+
+<CardGroup cols={3}>
+  <Card title="7z" icon="file-zipper" href="/formats/7z">
+    Native 7-Zip format with highest compression ratio
+  </Card>
+  <Card title="ZIP" icon="folder-zip" href="/formats/zip">
+    Universal format with wide compatibility
+  </Card>
+  <Card title="TAR" icon="box-archive" href="/formats/tar">
+    Unix archive format, often combined with compression
+  </Card>
+  <Card title="GZIP" icon="file-archive" href="/formats/gzip">
+    Single-file compression using Deflate algorithm
+  </Card>
+  <Card title="BZIP2" icon="file-archive" href="/formats/bzip2">
+    High-compression single-file format
+  </Card>
+  <Card title="XZ" icon="file-archive" href="/formats/xz">
+    Modern format with LZMA2 compression
+  </Card>
+  <Card title="WIM" icon="hard-drive" href="/formats/wim">
+    Windows Imaging Format for system images
+  </Card>
+  <Card title="ISO" icon="compact-disc" href="/formats/iso">
+    CD/DVD/BD image format
+  </Card>
+</CardGroup>
+
+## Format Categories
+
+### Archive Formats
+
+These formats can store multiple files and directories with metadata:
+
+- **7z** - Native format with the best compression ratio
+- **ZIP** - Most compatible, widely supported
+- **TAR** - Unix standard, preserves file permissions
+- **WIM** - Windows system image format
+- **ISO** - Optical disc image format
+
+### Compression-Only Formats
+
+These formats compress single files or streams:
+
+- **GZIP** (.gz) - Fast compression, commonly used with TAR
+- **BZIP2** (.bz2) - Better compression than GZIP
+- **XZ** (.xz) - Best compression, based on LZMA2
+
+## Format Comparison
+
+<Note>
+The table below compares key features of different archive formats supported by 7-Zip.
+</Note>
+
+| Format | Multiple Files | Compression Methods | Solid Archive | Encryption | Maximum Size |
+|--------|----------------|---------------------|---------------|------------|-------------|
+| 7z | Yes | LZMA2, LZMA, BZip2, Deflate, PPMd | Yes | AES-256 | 16 EB |
+| ZIP | Yes | Deflate, Deflate64, BZip2, LZMA, PPMd | No | AES-256, ZipCrypto | 16 EB (ZIP64) |
+| TAR | Yes | None (use with .gz/.bz2/.xz) | N/A | No | Unlimited |
+| GZIP | No | Deflate | N/A | No | 4 GB |
+| BZIP2 | No | BZip2 | N/A | No | Unlimited |
+| XZ | No | LZMA2 | N/A | No | 16 EB |
+| WIM | Yes | XPRESS, LZX, LZMA | Yes | No | 4 GB per image |
+| ISO | Yes | None | N/A | No | 8 TB |
+
+## Choosing the Right Format
+
+### For Maximum Compression
+
+Use **7z** format with LZMA2 compression and solid mode:
+
+```bash
+7z a -t7z -m0=lzma2 -mx=9 -ms=on archive.7z files/
+```
+
+### For Maximum Compatibility
+
+Use **ZIP** format with Deflate compression:
+
+```bash
+7z a -tzip -mm=Deflate archive.zip files/
+```
+
+### For Unix/Linux Systems
+
+Use **TAR** combined with **XZ** or **GZIP**:
+
+```bash
+7z a -ttar archive.tar files/
+7z a -txz archive.tar.xz archive.tar
+```
+
+### For Single File Compression
+
+Use **XZ** for best compression or **GZIP** for speed:
+
+```bash
+7z a -txz file.txt.xz file.txt
+7z a -tgzip file.txt.gz file.txt
+```
+
+## Extraction Support
+
+<Info>
+7-Zip can extract from many more formats than it can create, including:
+- RAR (including RAR5)
+- CAB, CHM, WIM
+- ARJ, LZH, CPIO, RPM, DEB
+- ISO, DMG, HFS
+- And many more...
+</Info>
+
+## Implementation Details
+
+All format handlers are implemented in the source tree at:
+
+```
+CPP/7zip/Archive/
+├── 7z/          # 7z format handler
+├── Zip/         # ZIP format handler  
+├── Tar/         # TAR format handler
+├── Wim/         # WIM format handler
+├── Iso/         # ISO format handler
+├── GzHandler.cpp   # GZIP handler
+├── Bz2Handler.cpp  # BZIP2 handler
+└── XzHandler.cpp   # XZ handler
+```
+
+Each format handler implements the IInArchive and IOutArchive interfaces defined in `IArchive.h`.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="7z Format Details" icon="file-zipper" href="/formats/7z">
+    Learn about the native 7-Zip format structure
+  </Card>
+  <Card title="ZIP Format Details" icon="folder-zip" href="/formats/zip">
+    Understand ZIP format capabilities
+  </Card>
+</CardGroup>
