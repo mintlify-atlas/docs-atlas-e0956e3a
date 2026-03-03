@@ -41,8 +41,10 @@
               "commands/test",
               "commands/update",
               "commands/delete",
+              "commands/rename",
               "commands/benchmark",
-              "commands/hash"
+              "commands/hash",
+              "commands/info"
             ]
           },
           {

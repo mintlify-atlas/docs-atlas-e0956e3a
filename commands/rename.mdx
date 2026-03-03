@@ -1,0 +1,286 @@
+---
+title: Rename command (rn)
+description: Rename files within archives
+---
+
+The **rename** command allows you to rename files inside an archive without extracting and recompressing.
+
+## Syntax
+
+```bash
+7z rn <archive_name> <old_name> <new_name> [<old_name2> <new_name2> ...]
+```
+
+## Parameters
+
+<ParamField path="archive_name" type="string" required>
+  Path to the archive file
+</ParamField>
+
+<ParamField path="old_name" type="string" required>
+  Current name of the file in the archive
+</ParamField>
+
+<ParamField path="new_name" type="string" required>
+  New name for the file
+</ParamField>
+
+## Basic Usage
+
+### Rename Single File
+
+```bash
+# Rename a file in the archive
+7z rn archive.7z oldfile.txt newfile.txt
+```
+
+### Rename Multiple Files
+
+```bash
+# Rename multiple files in one command
+7z rn archive.7z \
+  file1.txt renamed1.txt \
+  file2.txt renamed2.txt \
+  file3.txt renamed3.txt
+```
+
+## Examples
+
+### Rename with Path
+
+```bash
+# Rename file in subdirectory
+7z rn archive.7z docs/old.txt docs/new.txt
+
+# Move file to different directory
+7z rn archive.7z src/file.cpp include/file.cpp
+```
+
+### Batch Rename
+
+```bash
+# Rename all .tmp files to .txt
+7z l -slt archive.7z | grep "Path =" | grep "\.tmp$" | while read -r line; do
+    old=$(echo $line | cut -d' ' -f3)
+    new=$(echo $old | sed 's/\.tmp$/.txt/')
+    7z rn archive.7z "$old" "$new"
+done
+```
+
+## Important Notes
+
+<Warning>
+**Archive Type Limitations**
+
+The rename command is primarily supported for **7z archives**. Other archive formats (ZIP, TAR) may have limited or no support for in-place renaming.
+</Warning>
+
+<Note>
+**Performance**
+
+Renaming files in solid archives may require recompression of the entire solid block, which can be slow for large archives.
+</Note>
+
+## Use Cases
+
+### Correct Filename Errors
+
+```bash
+# Fix typo in filename
+7z rn backup.7z docuemnt.pdf document.pdf
+```
+
+### Reorganize Archive Structure
+
+```bash
+# Move files to new directory structure
+7z rn project.7z \
+  main.cpp src/main.cpp \
+  utils.cpp src/utils.cpp \
+  config.h include/config.h
+```
+
+### Normalize File Extensions
+
+```bash
+# Change file extension
+7z rn archive.7z image.jpeg image.jpg
+```
+
+## Scripting Example
+
+```bash
+#!/bin/bash
+
+# Rename files to lowercase
+rename_to_lowercase() {
+    local archive=$1
+    
+    # List all files
+    7z l -slt "$archive" | grep "^Path = " | while read -r line; do
+        old=$(echo $line | cut -d' ' -f3-)
+        new=$(echo "$old" | tr '[:upper:]' '[:lower:]')
+        
+        if [ "$old" != "$new" ]; then
+            echo "Renaming: $old -> $new"
+            7z rn "$archive" "$old" "$new"
+        fi
+    done
+}
+
+# Usage
+rename_to_lowercase "archive.7z"
+```
+
+## Advanced Usage
+
+### Rename with Pattern
+
+```bash
+#!/bin/bash
+
+# Add prefix to all files
+add_prefix() {
+    local archive=$1
+    local prefix=$2
+    
+    7z l -slt "$archive" | grep "^Path = " | cut -d' ' -f3- | while read -r file; do
+        dir=$(dirname "$file")
+        base=$(basename "$file")
+        new="$dir/${prefix}${base}"
+        
+        7z rn "$archive" "$file" "$new"
+    done
+}
+
+# Usage: add_prefix archive.7z "backup_"
+```
+
+### Date-based Renaming
+
+```bash
+#!/bin/bash
+
+# Add timestamp to filenames
+timestamp=$(date +%Y%m%d)
+
+7z l -slt archive.7z | grep "^Path = " | cut -d' ' -f3- | while read -r file; do
+    ext="${file##*.}"
+    base="${file%.*}"
+    new="${base}_${timestamp}.${ext}"
+    
+    7z rn archive.7z "$file" "$new"
+done
+```
+
+## Error Handling
+
+### File Not Found
+
+```bash
+# Check if file exists before renaming
+if 7z l archive.7z oldfile.txt > /dev/null 2>&1; then
+    7z rn archive.7z oldfile.txt newfile.txt
+else
+    echo "File not found in archive"
+fi
+```
+
+### Name Conflicts
+
+```bash
+# Check for existing file with new name
+if 7z l archive.7z newfile.txt > /dev/null 2>&1; then
+    echo "Warning: newfile.txt already exists"
+    # Add suffix or handle conflict
+    7z rn archive.7z oldfile.txt newfile_2.txt
+else
+    7z rn archive.7z oldfile.txt newfile.txt
+fi
+```
+
+## Limitations
+
+<Warning>
+**Solid Archives**
+
+Renaming files in solid 7z archives may be slow as it can require recompression of the solid block.
+</Warning>
+
+<Warning>
+**Encrypted Archives**
+
+For encrypted archives, you may need to provide the password:
+
+```bash
+7z rn -p<password> archive.7z oldfile.txt newfile.txt
+```
+</Warning>
+
+## Exit Codes
+
+| Code | Meaning |
+|------|--------|
+| 0 | Success |
+| 1 | Warning (non-fatal error) |
+| 2 | Fatal error |
+| 7 | Command line error |
+| 8 | Not enough memory |
+
+```bash
+7z rn archive.7z old.txt new.txt
+if [ $? -eq 0 ]; then
+    echo "Rename successful"
+else
+    echo "Rename failed"
+fi
+```
+
+## Alternatives
+
+### Extract, Rename, Recompress
+
+For complex renaming or unsupported formats:
+
+```bash
+# Extract
+7z x archive.zip -oextract/
+
+# Rename files
+cd extract/
+mv oldfile.txt newfile.txt
+
+# Recompress
+cd ..
+7z a -tzip new_archive.zip extract/*
+```
+
+## Best Practices
+
+<Tip>
+**Always backup** your archive before performing batch rename operations.
+</Tip>
+
+<Tip>
+**Test first** with a copy of the archive to ensure your rename commands work as expected.
+</Tip>
+
+<Tip>
+**Use quotes** around filenames with spaces or special characters:
+
+```bash
+7z rn archive.7z "old file.txt" "new file.txt"
+```
+</Tip>
+
+## Related Commands
+
+- [List Command](/commands/list) - List files to rename
+- [Update Command](/commands/update) - Update files in archive
+- [Delete Command](/commands/delete) - Delete files from archive
+
+## See Also
+
+- [Command Overview](/commands/overview)
+- [Archive Formats](/formats/overview)
+- [7z Format](/formats/7z)

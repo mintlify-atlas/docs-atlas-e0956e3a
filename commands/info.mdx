@@ -1,0 +1,234 @@
+---
+title: Info command (i)
+description: Display information about supported formats and codecs
+---
+
+The **info** command displays detailed information about compression formats, codecs, and hashers supported by 7-Zip.
+
+## Syntax
+
+```bash
+7z i [format]
+```
+
+## Usage
+
+### Show All Formats
+
+```bash
+# Display all supported formats
+7z i
+```
+
+**Output includes**:
+- Archive formats (7z, ZIP, TAR, etc.)
+- Compression codecs (LZMA, LZMA2, PPMd, etc.)
+- Hash functions (CRC32, SHA256, etc.)
+- Filters (BCJ, BCJ2, Delta, ARM, etc.)
+
+### Show Specific Format
+
+```bash
+# Show information about 7z format
+7z i 7z
+
+# Show information about ZIP format
+7z i zip
+
+# Show information about TAR format
+7z i tar
+```
+
+## Example Output
+
+```bash
+$ 7z i
+
+7-Zip 26.00 (x64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-03-01
+
+Formats:
+ Lib  ID  Name
+
+   0  01  7z
+   0  02  Arj
+   0  03  BZip2
+   0  04  Cab
+   0  05  Chm
+   0  06  Compound
+   0  07  Cpio
+   0  08  CramFS
+   0  09  Dmg
+   0  0A  ELF
+   0  0B  Ext
+   0  0C  FAT
+   0  0D  FLV
+   0  0E  GZip
+   0  0F  HFS
+   0  10  IHex
+   0  11  Iso
+   0  12  Lzh
+   0  13  Lzma
+   0  14  Lzma86
+   0  15  MachO
+   0  16  Mbr
+   0  17  Msi
+   0  18  Mub
+   0  19  Nsis
+   0  1A  Ntfs
+   0  1B  PE
+   0  1C  Rar
+   0  1D  Rar5
+   0  1E  Rpm
+   0  1F  Split
+   0  20  SquashFS
+   0  21  SWF
+   0  22  SWFc
+   0  23  Tar
+   0  24  TE
+   0  25  Udf
+   0  26  UEFIc
+   0  27  UEFIs
+   0  28  Vhd
+   0  29  Wim
+   0  2A  Xar
+   0  2B  XZ
+   0  2C  Z
+   0  2D  Zip
+
+Codecs:
+ Lib  ID  Name
+
+   0  030101  LZMA
+   0  030401  PPMD
+   0  040202  BZip2
+   0  21      LZMA2
+
+Hashers:
+ Lib  Size    ID    Name
+
+   0    4       1   CRC32
+   0    8       4   CRC64
+   0   32      A    SHA256
+   0   20     201   SHA1
+   0    8     202   XXH64
+```
+
+## Format Information
+
+### Archive Formats
+
+The info command shows:
+- **ID** - Format identifier (hexadecimal)
+- **Name** - Format name
+- **Lib** - Library index (0 = built-in)
+
+### Codecs
+
+Compression methods:
+- **LZMA** - Original LZMA algorithm (ID: 030101)
+- **LZMA2** - Improved LZMA (ID: 21)
+- **PPMd** - Prediction by partial matching (ID: 030401)
+- **BZip2** - Burrows-Wheeler transform (ID: 040202)
+
+### Hashers
+
+Supported hash functions:
+- **CRC32** - 32-bit cyclic redundancy check
+- **CRC64** - 64-bit CRC
+- **SHA256** - 256-bit secure hash
+- **SHA1** - 160-bit secure hash
+- **XXH64** - Fast 64-bit hash
+
+## Use Cases
+
+### Check Format Support
+
+```bash
+# Check if a format is supported
+7z i | grep -i "wim"
+```
+
+### Verify Codec Availability
+
+```bash
+# Check available codecs
+7z i | grep -A 10 "Codecs:"
+```
+
+### List Hash Functions
+
+```bash
+# Show all hash functions
+7z i | grep -A 10 "Hashers:"
+```
+
+## Format Details
+
+For detailed information about specific formats:
+
+```bash
+# 7z format capabilities
+7z i 7z
+
+# Output shows:
+# - Supported compression methods
+# - Encryption support
+# - Solid archive support
+# - Multi-volume support
+```
+
+## Scripting Example
+
+```bash
+#!/bin/bash
+
+# Check if 7-Zip supports a specific format
+check_format() {
+    local format=$1
+    if 7z i | grep -qi "$format"; then
+        echo "Format $format is supported"
+        return 0
+    else
+        echo "Format $format is NOT supported"
+        return 1
+    fi
+}
+
+# Usage
+check_format "zip"
+check_format "rar"
+check_format "7z"
+```
+
+## Version Information
+
+The info command also displays:
+- 7-Zip version number
+- Architecture (x86, x64, ARM, etc.)
+- Copyright information
+- Build date
+
+```bash
+7z i | head -3
+# 7-Zip 26.00 (x64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-03-01
+```
+
+<Info>
+The info command is useful for verifying that 7-Zip supports a particular format before attempting to work with archives of that type.
+</Info>
+
+<Tip>
+Use `7z i | less` to page through the full list of formats and codecs on systems with many formats installed.
+</Tip>
+
+## Related Commands
+
+- [List Command](/commands/list) - List contents of archives
+- [Test Command](/commands/test) - Test archive integrity
+- [Archive Formats](/formats/overview) - Detailed format documentation
+
+## See Also
+
+- [Compression Methods](/compression/overview)
+- [Archive Formats Overview](/formats/overview)
+- [Hash Command](/commands/hash)
