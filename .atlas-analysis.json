@@ -1,0 +1,125 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "7-Zip",
+  "projectDescription": "A high-compression file archiver supporting multiple formats including 7z, ZIP, TAR, and GZIP",
+  "theme": "aspen",
+  "primaryColor": "#2196F3",
+  "lightColor": "#64B5F6",
+  "darkColor": "#1976D2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Command Reference",
+            "pages": [
+              "commands/overview",
+              "commands/add",
+              "commands/extract",
+              "commands/list",
+              "commands/test",
+              "commands/update",
+              "commands/delete",
+              "commands/benchmark",
+              "commands/hash"
+            ]
+          },
+          {
+            "group": "Compression Methods",
+            "pages": [
+              "compression/overview",
+              "compression/lzma",
+              "compression/lzma2",
+              "compression/ppmd",
+              "compression/bzip2",
+              "compression/deflate"
+            ]
+          },
+          {
+            "group": "Archive Formats",
+            "pages": [
+              "formats/overview",
+              "formats/7z",
+              "formats/zip",
+              "formats/tar",
+              "formats/gzip",
+              "formats/bzip2",
+              "formats/xz",
+              "formats/wim",
+              "formats/iso"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "advanced/switches",
+              "advanced/encryption",
+              "advanced/solid-archives",
+              "advanced/self-extracting",
+              "advanced/filters"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Building from Source",
+            "pages": [
+              "dev/building",
+              "dev/windows",
+              "dev/linux",
+              "dev/macos"
+            ]
+          },
+          {
+            "group": "SDK & Integration",
+            "pages": [
+              "dev/sdk-overview",
+              "dev/lzma-sdk",
+              "dev/7z-format",
+              "dev/dlls"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "dev/contributing",
+              "dev/license"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "High compression ratio with LZMA/LZMA2 algorithms",
+    "Support for 20+ archive formats",
+    "Strong AES-256 encryption",
+    "Self-extracting archives (SFX)",
+    "Multi-threaded compression",
+    "Cross-platform (Windows, Linux, macOS)",
+    "Command-line and GUI interfaces",
+    "ANSI-C SDK for integration"
+  ],
+  "publicApiSurface": [
+    "7z - Main command-line tool",
+    "7za - Standalone console version",
+    "7zr - Standalone 7z-only version",
+    "7zz - Full-format standalone version",
+    "7z.dll - Format handler DLL",
+    "LZMA SDK - C/C++ compression library",
+    "Commands: a (add), x (extract), l (list), t (test), u (update), d (delete), b (benchmark), h (hash)",
+    "Switches: -t (format), -m (method), -p (password), -r (recurse), -x (exclude), -mx (compression level)"
+  ]
+}
